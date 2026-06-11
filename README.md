@@ -53,12 +53,13 @@ uv sync
 
 ## RL
 
-Four downstream tasks are registered with `mjlab.tasks.registry` (importing
+Five downstream tasks are registered with `mjlab.tasks.registry` (importing
 `smp.rl.tasks` self-registers them):
 
 | Task              | Demo | Description                              |
 | ----------------- | :--: | ---------------------------------------- |
 | `Smp-Forward-G1`  | <img src="https://raw.githubusercontent.com/SUZ-tsinghua/smp/assets/forward.gif" width="200"/> | walk / jog / run at a commanded `+x` speed |
+| `Smp-Upstairs-G1` | | climb curriculum open stairs with height-scan observations while tracking a rough-G1-style body-frame twist command |
 | `Smp-Steering-G1` | <img src="https://raw.githubusercontent.com/SUZ-tsinghua/smp/assets/steering.gif" width="200"/> | track a commanded velocity + facing direction |
 | `Smp-Location-G1` | <img src="https://raw.githubusercontent.com/SUZ-tsinghua/smp/assets/location.gif" width="200"/> | walk to a world-frame xy goal |
 | `Smp-Getup-G1`    | <img src="https://raw.githubusercontent.com/SUZ-tsinghua/smp/assets/getup.gif" width="200"/> | stand up from a fallen pose |
@@ -73,7 +74,7 @@ uv run scripts/train.py Smp-Forward-G1 --env.scene.num-envs=4096
 uv run scripts/play.py Smp-Forward-G1 --wandb-run-path <org>/<project>/<run> --num-envs 4
 ```
 
-Swap the task id for any of the four. Because the priors are shipped and already
+Swap the task id for any of the five. Because the priors are shipped and already
 wired into each env config, no editing is required before training.
 
 ### Reward design: `task × SMP`
@@ -116,6 +117,12 @@ Per-task `taskᵢ` components (each weighted, summed, then gated by `r_smp`):
 - **Forward** — velocity tracking only: `exp(−s·‖v_cmd − v_xy‖²)`, zeroed when the
   velocity projects backwards onto the target direction. Fixed `+x` heading,
   commanded speed 0.5–5 m/s.
+- **Upstairs** — rough-G1-style stair locomotion with yaw-aligned height-scan
+  observations, terrain-level curriculum, successful edge traversal truncation,
+  and a body-frame 3D twist command `[v_x, v_y, ω_z]`. The configured command is
+  forward walking with zero lateral velocity and randomized yaw rate, matching
+  the rough-G1 command style. The task term is mostly twist tracking with a small
+  climb-progress component, still gated by SMP.
 - **Steering** — `0.5·` velocity tracking `+ 0.5·` facing alignment
   `max(face_dir · heading, 0)`; randomized target direction + facing, speed 0.5–2 m/s.
 - **Location** — position tracking only: `exp(−s·‖xy_goal − xy_robot‖)` toward a

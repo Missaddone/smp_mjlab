@@ -54,3 +54,22 @@ def steering_face_direction(
   char_face_w = torch.stack([torch.cos(heading_w), torch.sin(heading_w)], dim=-1)
   face_dot = (cmd.face_dir_w * char_face_w).sum(dim=-1)
   return face_dot.clamp_min(0.0)
+
+
+def upstairs_height_progress(
+  env: "ManagerBasedRlEnv",
+  target_climb_height: float = 0.8,
+  nominal_root_height: float = 0.75,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Reward climbing above the terrain spawn platform.
+
+  The terrain origin is the stair-bottom platform, while the robot root starts
+  roughly ``nominal_root_height`` above that platform.  Subtracting the nominal
+  standing height makes the reward measure stair-climb progress rather than the
+  robot's ordinary base height.
+  """
+  asset = env.scene[asset_cfg.name]
+  origins = env.scene.env_origins
+  climb = asset.data.root_link_pos_w[:, 2] - origins[:, 2] - nominal_root_height
+  return (climb / target_climb_height).clamp(0.0, 1.0)

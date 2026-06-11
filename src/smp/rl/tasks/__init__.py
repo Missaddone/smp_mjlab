@@ -8,5 +8,5 @@ from smp.rl.tasks import (
   catchball,  # noqa: F401  # registers Smp-CatchBall-G1
   getup,  # noqa: F401  # registers Smp-Getup-G1
   location,  # noqa: F401  # registers Smp-Location-G1
-  steering,  # noqa: F401  # registers Smp-Steering-G1 and Smp-Forward-G1
+  steering,  # noqa: F401  # registers steering-style tasks
 )
