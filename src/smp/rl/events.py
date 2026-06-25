@@ -108,6 +108,65 @@ def init_smp_state(
   gsi_reset(env)
 
 
+def init_smp_double_prior_state(
+  env: ManagerBasedRlEnv,
+  env_ids: torch.Tensor | None = None,
+  moving_ckpt_path: str = "",
+  stand_ckpt_path: str = "",
+  gsi_buffer_size: int = 4096,
+  gsi_batch_size: int = 256,
+  compile_model: bool = True,
+  compile_mode: str | None = None,
+) -> None:
+  """Load moving and standing SMP priors, using the moving prior for GSI."""
+  if not moving_ckpt_path:
+    msg = "init_smp_double_prior_state requires a non-empty `moving_ckpt_path`."
+    raise RuntimeError(msg)
+  if not stand_ckpt_path:
+    msg = "init_smp_double_prior_state requires a non-empty `stand_ckpt_path`."
+    raise RuntimeError(msg)
+
+  init_smp_state(
+    env,
+    env_ids,
+    ckpt_path=moving_ckpt_path,
+    gsi_buffer_size=gsi_buffer_size,
+    gsi_batch_size=gsi_batch_size,
+    compile_model=compile_model,
+    compile_mode=compile_mode,
+  )
+
+  moving_bundle = env._smp_bundle  # type: ignore[attr-defined]
+  moving_normalizer = env._smp_normalizer  # type: ignore[attr-defined]
+  stand_model, stand_scheduler, stand_q_low, stand_q_high, stand_feature_dim, stand_window_size = load_denoiser(
+    stand_ckpt_path, env.device
+  )
+  stand_model = _maybe_compile(stand_model, compile_model, compile_mode)
+  _, _, _, _, moving_feature_dim, moving_window_size = moving_bundle
+  if stand_feature_dim != moving_feature_dim:
+    msg = f"Stand SMP prior feature_dim={stand_feature_dim}, expected {moving_feature_dim}."
+    raise ValueError(msg)
+  if stand_window_size != moving_window_size:
+    msg = f"Stand SMP prior window_size={stand_window_size}, expected {moving_window_size}."
+    raise ValueError(msg)
+
+  env._smp_prior_bundles = {  # type: ignore[attr-defined]
+    "moving": moving_bundle,
+    "stand": (
+      stand_model,
+      stand_scheduler,
+      stand_q_low,
+      stand_q_high,
+      stand_feature_dim,
+      stand_window_size,
+    ),
+  }
+  env._smp_prior_normalizers = {  # type: ignore[attr-defined]
+    "moving": moving_normalizer,
+    "stand": DiffNormalizer(stand_scheduler.num_timesteps, env.device),
+  }
+
+
 def _prime_sim_and_buffer(
   env: ManagerBasedRlEnv,
   env_ids: torch.Tensor,

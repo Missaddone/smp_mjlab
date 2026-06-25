@@ -39,20 +39,44 @@ def smp_guidance_reward(
   fixed_timesteps: tuple[int, ...] = (8, 15, 22),
   ws: float = 4.0,
   normalize: bool = True,
+  env_mask: torch.Tensor | None = None,
+  prior_name: str = "moving",
 ) -> torch.Tensor:
   """SDS-style guidance reward over fixed timesteps ``K``:
   ``exp(-w_s/|K| · Σ_{i∈K} ‖ε̂_i − ε_i‖²)``.  ``normalize`` divides each MSE by a
   ``DiffNormalizer`` running mean (policy-relative) vs. raw (absolute scale);
   always stashes the mean raw MSE on ``env._smp_raw_err``."""
   device = torch.device(env.device)
-  model, scheduler, q_low, q_high, _, _ = env._smp_bundle  # type: ignore[attr-defined]
-  normalizer: DiffNormalizer = env._smp_normalizer  # type: ignore[attr-defined]
+  if hasattr(env, "_smp_prior_bundles"):
+    if prior_name not in env._smp_prior_bundles:  # type: ignore[attr-defined]
+      msg = f"SMP prior '{prior_name}' is not initialized."
+      raise RuntimeError(msg)
+    model, scheduler, q_low, q_high, _, _ = env._smp_prior_bundles[prior_name]  # type: ignore[attr-defined]
+    normalizer: DiffNormalizer = env._smp_prior_normalizers[prior_name]  # type: ignore[attr-defined]
+  else:
+    model, scheduler, q_low, q_high, _, _ = env._smp_bundle  # type: ignore[attr-defined]
+    normalizer: DiffNormalizer = env._smp_normalizer  # type: ignore[attr-defined]
   buffer: MotionFeatureBuffer = env._smp_buffer  # type: ignore[attr-defined]
   _update_buffer_from_sim(env)
 
   features = buffer.compute_features()
   x_0 = 2.0 * (features - q_low) / (q_high - q_low + 1e-8) - 1.0
-  num_envs = x_0.shape[0]
+  all_num_envs = x_0.shape[0]
+  if env_mask is not None:
+    env_mask = env_mask.to(device=device, dtype=torch.bool)
+    if env_mask.numel() != all_num_envs:
+      msg = f"env_mask length {env_mask.numel()} does not match num_envs {all_num_envs}."
+      raise ValueError(msg)
+    if not env_mask.any():
+      env._smp_raw_err = torch.zeros(all_num_envs, device=device)  # type: ignore[attr-defined]
+      return torch.ones(all_num_envs, device=device)
+    active_mask = env_mask
+    x_0_active = x_0[active_mask]
+  else:
+    active_mask = None
+    x_0_active = x_0
+
+  num_envs = x_0_active.shape[0]
 
   total_err = torch.zeros(num_envs, device=device)
   total_raw = torch.zeros(num_envs, device=device)
@@ -62,8 +86,8 @@ def smp_guidance_reward(
         msg = f"fixed_timestep {t_scalar} out of range [0, {scheduler.num_timesteps})"
         raise ValueError(msg)
       t = torch.full((num_envs,), t_scalar, dtype=torch.long, device=device)
-      noise = torch.randn_like(x_0)
-      x_t = scheduler.add_noise(x_0, noise, t)
+      noise = torch.randn_like(x_0_active)
+      x_t = scheduler.add_noise(x_0_active, noise, t)
       eps_hat = model(x_t, t)
       mse_per_env = ((eps_hat - noise) ** 2).mean(dim=(-1, -2))
       total_raw += mse_per_env
@@ -72,9 +96,18 @@ def smp_guidance_reward(
       else:
         total_err += mse_per_env
 
-  env._smp_raw_err = total_raw / len(fixed_timesteps)  # type: ignore[attr-defined]
+  if active_mask is None:
+    env._smp_raw_err = total_raw / len(fixed_timesteps)  # type: ignore[attr-defined]
+  else:
+    env._smp_raw_err = torch.zeros(all_num_envs, device=device)  # type: ignore[attr-defined]
+    env._smp_raw_err[active_mask] = total_raw / len(fixed_timesteps)  # type: ignore[attr-defined]
   err = total_err / len(fixed_timesteps)
-  return torch.exp(-err * ws)
+  reward = torch.exp(-err * ws)
+  if active_mask is None:
+    return reward
+  full_reward = torch.ones(all_num_envs, device=device)
+  full_reward[active_mask] = reward
+  return full_reward
 
 
 def task_smp_product(

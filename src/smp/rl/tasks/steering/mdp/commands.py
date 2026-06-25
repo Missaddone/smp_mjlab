@@ -31,6 +31,27 @@ def _dir_world_to_local(dir_w: torch.Tensor, heading_w: torch.Tensor) -> torch.T
   return torch.stack([cos_h * x_w + sin_h * y_w, -sin_h * x_w + cos_h * y_w], dim=-1)
 
 
+def _deadzone_bounds(cfg: "SteeringCommandCfg") -> tuple[float, float]:
+  lower = cfg.speed_deadzone_min
+  upper = cfg.speed_deadzone_max
+  if lower is None and upper is None:
+    lower = cfg.tar_speed_min
+    upper = cfg.speed_deadzone
+  elif lower is None:
+    lower = cfg.tar_speed_min
+  elif upper is None:
+    upper = cfg.speed_deadzone
+  return lower, upper
+
+
+def _has_two_bin_speed_sampling(cfg: "SteeringCommandCfg") -> bool:
+  return (
+    cfg.stand_sample_prob > 0.0
+    and cfg.run_speed_min is not None
+    and cfg.run_speed_max is not None
+  )
+
+
 class SteeringCommand(CommandTerm):
   """Periodic target dir + speed + face dir command (world frame internally)."""
 
@@ -87,9 +108,62 @@ class SteeringCommand(CommandTerm):
     self.tar_dir_w[env_ids, 0] = torch.cos(theta)
     self.tar_dir_w[env_ids, 1] = torch.sin(theta)
 
-    self.tar_speed[env_ids] = torch.empty(n, device=self.device).uniform_(
-      self.cfg.tar_speed_min, self.cfg.tar_speed_max
-    )
+    if _has_two_bin_speed_sampling(self.cfg):
+      run_speed_min = max(float(self.cfg.run_speed_min), self.cfg.tar_speed_min)
+      run_speed_max = min(float(self.cfg.run_speed_max), self.cfg.tar_speed_max)
+      if run_speed_max <= run_speed_min:
+        msg = f"Invalid run speed interval [{run_speed_min}, {run_speed_max}]."
+        raise ValueError(msg)
+      stand_mask = torch.rand(n, device=self.device) < self.cfg.stand_sample_prob
+      speeds = torch.empty(n, device=self.device)
+      if stand_mask.any():
+        speeds[stand_mask] = self.cfg.stand_speed
+      if (~stand_mask).any():
+        speeds[~stand_mask] = torch.empty(int((~stand_mask).sum()), device=self.device).uniform_(
+          run_speed_min, run_speed_max
+        )
+      self.tar_speed[env_ids] = speeds
+    else:
+      deadzone_min, deadzone_max = _deadzone_bounds(self.cfg)
+      deadzone_min = max(deadzone_min, self.cfg.tar_speed_min)
+      deadzone_max = min(deadzone_max, self.cfg.tar_speed_max)
+      has_deadzone = deadzone_max > deadzone_min
+      if self.cfg.deadzone_sample_prob > 0.0 and has_deadzone:
+        deadzone_mask = torch.rand(n, device=self.device) < self.cfg.deadzone_sample_prob
+        speeds = torch.empty(n, device=self.device)
+        if deadzone_mask.any():
+          speeds[deadzone_mask] = torch.empty(int(deadzone_mask.sum()), device=self.device).uniform_(
+            deadzone_min, deadzone_max
+          )
+        if (~deadzone_mask).any():
+          moving_count = int((~deadzone_mask).sum())
+          moving_speeds = torch.empty(moving_count, device=self.device)
+          lower_len = max(deadzone_min - self.cfg.tar_speed_min, 0.0)
+          upper_len = max(self.cfg.tar_speed_max - deadzone_max, 0.0)
+          if lower_len == 0.0 and upper_len == 0.0:
+            moving_speeds.uniform_(deadzone_min, deadzone_max)
+          elif lower_len > 0.0 and upper_len > 0.0:
+            lower_mask = torch.rand(moving_count, device=self.device) < lower_len / (
+              lower_len + upper_len
+            )
+            if lower_mask.any():
+              moving_speeds[lower_mask] = torch.empty(
+                int(lower_mask.sum()), device=self.device
+              ).uniform_(self.cfg.tar_speed_min, deadzone_min)
+            if (~lower_mask).any():
+              moving_speeds[~lower_mask] = torch.empty(
+                int((~lower_mask).sum()), device=self.device
+              ).uniform_(deadzone_max, self.cfg.tar_speed_max)
+          elif lower_len > 0.0:
+            moving_speeds.uniform_(self.cfg.tar_speed_min, deadzone_min)
+          else:
+            moving_speeds.uniform_(deadzone_max, self.cfg.tar_speed_max)
+          speeds[~deadzone_mask] = moving_speeds
+        self.tar_speed[env_ids] = speeds
+      else:
+        self.tar_speed[env_ids] = torch.empty(n, device=self.device).uniform_(
+          self.cfg.tar_speed_min, self.cfg.tar_speed_max
+        )
 
     if self.cfg.rand_face_dir:
       face_theta = torch.empty(n, device=self.device).uniform_(-math.pi, math.pi)
@@ -227,6 +301,15 @@ class SteeringCommandCfg(CommandTermCfg):
   rand_face_dir: bool = True
   tar_speed_min: float = 0.5
   tar_speed_max: float = 3.0
+  speed_deadzone: float = 0.0
+  speed_deadzone_min: float | None = None
+  speed_deadzone_max: float | None = None
+  deadzone_sample_prob: float = 0.0
+  stand_sample_prob: float = 0.0
+  stand_speed: float = 0.0
+  stand_speed_tolerance: float = 1e-4
+  run_speed_min: float | None = None
+  run_speed_max: float | None = None
 
   @dataclass
   class VizCfg:
@@ -241,3 +324,107 @@ class SteeringCommandCfg(CommandTermCfg):
 
   def build(self, env: "ManagerBasedRlEnv") -> SteeringCommand:
     return SteeringCommand(self, env)
+
+
+class BodyVelocityCommand(CommandTerm):
+  """Periodic body-frame xy velocity and yaw-rate command."""
+
+  cfg: "BodyVelocityCommandCfg"
+
+  def __init__(self, cfg: "BodyVelocityCommandCfg", env: "ManagerBasedRlEnv"):
+    super().__init__(cfg, env)
+    self.robot: Entity = env.scene[cfg.entity_name]
+    self.lin_vel_b = torch.zeros(self.num_envs, 2, device=self.device)
+    self.yaw_rate = torch.zeros(self.num_envs, device=self.device)
+    self.command_b = torch.zeros(self.num_envs, 3, device=self.device)
+    self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
+    self.metrics["error_yaw_rate"] = torch.zeros(self.num_envs, device=self.device)
+
+  @property
+  def command(self) -> torch.Tensor:
+    return self.command_b
+
+  def _root_lin_vel_b(self) -> torch.Tensor:
+    data = self.robot.data
+    if hasattr(data, "root_link_lin_vel_b"):
+      return data.root_link_lin_vel_b
+    if hasattr(data, "root_lin_vel_b"):
+      return data.root_lin_vel_b
+    heading_w = data.heading_w
+    lin_vel_xy_b = _dir_world_to_local(data.root_link_lin_vel_w[:, :2], heading_w)
+    return torch.cat([lin_vel_xy_b, data.root_link_lin_vel_w[:, 2:3]], dim=-1)
+
+  def _root_yaw_rate(self) -> torch.Tensor:
+    data = self.robot.data
+    if hasattr(data, "root_link_ang_vel_b"):
+      return data.root_link_ang_vel_b[:, 2]
+    if hasattr(data, "root_ang_vel_b"):
+      return data.root_ang_vel_b[:, 2]
+    return data.root_link_ang_vel_w[:, 2]
+
+  def _update_metrics(self) -> None:
+    root_lin_vel_b = self._root_lin_vel_b()
+    self.metrics["error_vel_xy"] = torch.linalg.norm(
+      self.lin_vel_b - root_lin_vel_b[:, :2], dim=-1
+    )
+    self.metrics["error_yaw_rate"] = torch.abs(self.yaw_rate - self._root_yaw_rate())
+
+  def _resample_command(self, env_ids: torch.Tensor) -> None:
+    n = int(env_ids.numel())
+    if n == 0:
+      return
+
+    theta = torch.empty(n, device=self.device).uniform_(-math.pi, math.pi)
+    stand_mask = torch.rand(n, device=self.device) < self.cfg.stand_sample_prob
+    if self.cfg.reset_stand_mask_attr is not None:
+      reset_labels = getattr(self._env, self.cfg.reset_stand_mask_attr, None)
+      if reset_labels is not None:
+        forced_mask = reset_labels[env_ids] >= 0
+        if forced_mask.any():
+          stand_mask[forced_mask] = reset_labels[env_ids[forced_mask]].bool()
+          reset_labels[env_ids[forced_mask]] = -1
+
+    speed = torch.empty(n, device=self.device)
+    if stand_mask.any():
+      speed[stand_mask] = torch.empty(int(stand_mask.sum()), device=self.device).uniform_(
+        0.0, self.cfg.stand_speed_max
+      )
+    if (~stand_mask).any():
+      speed[~stand_mask] = torch.empty(int((~stand_mask).sum()), device=self.device).uniform_(
+        self.cfg.speed_min, self.cfg.speed_max
+      )
+    self.lin_vel_b[env_ids, 0] = speed * torch.cos(theta)
+    self.lin_vel_b[env_ids, 1] = speed * torch.sin(theta)
+
+    yaw_rate = torch.empty(n, device=self.device)
+    if stand_mask.any():
+      yaw_rate[stand_mask] = torch.empty(int(stand_mask.sum()), device=self.device).uniform_(
+        -self.cfg.stand_yaw_rate_max, self.cfg.stand_yaw_rate_max
+      )
+    if (~stand_mask).any():
+      yaw_rate[~stand_mask] = torch.empty(int((~stand_mask).sum()), device=self.device).uniform_(
+        self.cfg.yaw_rate_min, self.cfg.yaw_rate_max
+      )
+    self.yaw_rate[env_ids] = yaw_rate
+    self.command_b[env_ids, 0:2] = self.lin_vel_b[env_ids]
+    self.command_b[env_ids, 2] = self.yaw_rate[env_ids]
+
+  def _update_command(self) -> None:
+    self.command_b[:, 0:2] = self.lin_vel_b
+    self.command_b[:, 2] = self.yaw_rate
+
+
+@dataclass(kw_only=True)
+class BodyVelocityCommandCfg(CommandTermCfg):
+  entity_name: str
+  speed_min: float = 0.5
+  speed_max: float = 3.0
+  yaw_rate_min: float = -1.0
+  yaw_rate_max: float = 1.0
+  stand_sample_prob: float = 0.2
+  stand_speed_max: float = 0.15
+  stand_yaw_rate_max: float = 0.2
+  reset_stand_mask_attr: str | None = None
+
+  def build(self, env: "ManagerBasedRlEnv") -> BodyVelocityCommand:
+    return BodyVelocityCommand(self, env)
