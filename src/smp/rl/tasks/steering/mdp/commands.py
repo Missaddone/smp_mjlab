@@ -374,7 +374,6 @@ class BodyVelocityCommand(CommandTerm):
     if n == 0:
       return
 
-    theta = torch.empty(n, device=self.device).uniform_(-math.pi, math.pi)
     stand_mask = torch.rand(n, device=self.device) < self.cfg.stand_sample_prob
     if self.cfg.reset_stand_mask_attr is not None:
       reset_labels = getattr(self._env, self.cfg.reset_stand_mask_attr, None)
@@ -384,17 +383,23 @@ class BodyVelocityCommand(CommandTerm):
           stand_mask[forced_mask] = reset_labels[env_ids[forced_mask]].bool()
           reset_labels[env_ids[forced_mask]] = -1
 
-    speed = torch.empty(n, device=self.device)
+    lin_vel_b = torch.empty(n, 2, device=self.device)
     if stand_mask.any():
-      speed[stand_mask] = torch.empty(int(stand_mask.sum()), device=self.device).uniform_(
-        0.0, self.cfg.stand_speed_max
-      )
+      lin_vel_b[stand_mask, 0] = torch.empty(
+        int(stand_mask.sum()), device=self.device
+      ).uniform_(self.cfg.stand_lin_vel_x_min, self.cfg.stand_lin_vel_x_max)
+      lin_vel_b[stand_mask, 1] = torch.empty(
+        int(stand_mask.sum()), device=self.device
+      ).uniform_(self.cfg.stand_lin_vel_y_min, self.cfg.stand_lin_vel_y_max)
     if (~stand_mask).any():
-      speed[~stand_mask] = torch.empty(int((~stand_mask).sum()), device=self.device).uniform_(
-        self.cfg.speed_min, self.cfg.speed_max
+      moving_count = int((~stand_mask).sum())
+      lin_vel_b[~stand_mask, 0] = torch.empty(moving_count, device=self.device).uniform_(
+        self.cfg.lin_vel_x_min, self.cfg.lin_vel_x_max
       )
-    self.lin_vel_b[env_ids, 0] = speed * torch.cos(theta)
-    self.lin_vel_b[env_ids, 1] = speed * torch.sin(theta)
+      lin_vel_b[~stand_mask, 1] = torch.empty(moving_count, device=self.device).uniform_(
+        self.cfg.lin_vel_y_min, self.cfg.lin_vel_y_max
+      )
+    self.lin_vel_b[env_ids] = lin_vel_b
 
     yaw_rate = torch.empty(n, device=self.device)
     if stand_mask.any():
@@ -417,14 +422,45 @@ class BodyVelocityCommand(CommandTerm):
 @dataclass(kw_only=True)
 class BodyVelocityCommandCfg(CommandTermCfg):
   entity_name: str
-  speed_min: float = 0.5
-  speed_max: float = 3.0
+  lin_vel_x_min: float = 0.5
+  lin_vel_x_max: float = 3.0
+  lin_vel_y_min: float = -1.0
+  lin_vel_y_max: float = 1.0
   yaw_rate_min: float = -1.0
   yaw_rate_max: float = 1.0
   stand_sample_prob: float = 0.2
-  stand_speed_max: float = 0.15
+  stand_lin_vel_x_min: float = -0.15
+  stand_lin_vel_x_max: float = 0.15
+  stand_lin_vel_y_min: float = -0.15
+  stand_lin_vel_y_max: float = 0.15
   stand_yaw_rate_max: float = 0.2
   reset_stand_mask_attr: str | None = None
+
+  def __post_init__(self) -> None:
+    if self.lin_vel_x_max < self.lin_vel_x_min:
+      msg = (
+        f"lin_vel_x_max ({self.lin_vel_x_max}) must be >= "
+        f"lin_vel_x_min ({self.lin_vel_x_min})."
+      )
+      raise ValueError(msg)
+    if self.lin_vel_y_max < self.lin_vel_y_min:
+      msg = (
+        f"lin_vel_y_max ({self.lin_vel_y_max}) must be >= "
+        f"lin_vel_y_min ({self.lin_vel_y_min})."
+      )
+      raise ValueError(msg)
+    if self.stand_lin_vel_x_max < self.stand_lin_vel_x_min:
+      msg = (
+        f"stand_lin_vel_x_max ({self.stand_lin_vel_x_max}) must be >= "
+        f"stand_lin_vel_x_min ({self.stand_lin_vel_x_min})."
+      )
+      raise ValueError(msg)
+    if self.stand_lin_vel_y_max < self.stand_lin_vel_y_min:
+      msg = (
+        f"stand_lin_vel_y_max ({self.stand_lin_vel_y_max}) must be >= "
+        f"stand_lin_vel_y_min ({self.stand_lin_vel_y_min})."
+      )
+      raise ValueError(msg)
 
   def build(self, env: "ManagerBasedRlEnv") -> BodyVelocityCommand:
     return BodyVelocityCommand(self, env)

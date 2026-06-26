@@ -55,23 +55,33 @@ def _set_body_velocity_actor_obs(cfg: ManagerBasedRlEnvCfg) -> None:
 
 
 def _body_velocity_command(
-  speed_min: float,
-  speed_max: float,
+  lin_vel_x_min: float,
+  lin_vel_x_max: float,
+  lin_vel_y_min: float,
+  lin_vel_y_max: float,
   yaw_rate_min: float,
   yaw_rate_max: float,
   stand_sample_prob: float = 0.0,
-  stand_speed_max: float = 0.15,
+  stand_lin_vel_x_min: float = -0.15,
+  stand_lin_vel_x_max: float = 0.15,
+  stand_lin_vel_y_min: float = -0.15,
+  stand_lin_vel_y_max: float = 0.15,
   stand_yaw_rate_max: float = 0.2,
 ) -> mdp.BodyVelocityCommandCfg:
   return mdp.BodyVelocityCommandCfg(
     entity_name="robot",
     resampling_time_range=(3.0, 8.0),
-    speed_min=speed_min,
-    speed_max=speed_max,
+    lin_vel_x_min=lin_vel_x_min,
+    lin_vel_x_max=lin_vel_x_max,
+    lin_vel_y_min=lin_vel_y_min,
+    lin_vel_y_max=lin_vel_y_max,
     yaw_rate_min=yaw_rate_min,
     yaw_rate_max=yaw_rate_max,
     stand_sample_prob=stand_sample_prob,
-    stand_speed_max=stand_speed_max,
+    stand_lin_vel_x_min=stand_lin_vel_x_min,
+    stand_lin_vel_x_max=stand_lin_vel_x_max,
+    stand_lin_vel_y_min=stand_lin_vel_y_min,
+    stand_lin_vel_y_max=stand_lin_vel_y_max,
     stand_yaw_rate_max=stand_yaw_rate_max,
   )
 
@@ -113,15 +123,23 @@ def g1_body_velocity_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _body_velocity_base_cfg(
     play,
     "pretrained_lafan_run.pt",
-    _body_velocity_command(0.0, 3.0, -2.0, 2.0),
+    _body_velocity_command(0.0, 3.0, -3.0, 3.0, -2.0, 2.0),
   )
 
 
 def g1_body_velocity_lafan_run_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _body_velocity_base_cfg(
     play,
-    "lafan_run_local_nrom.pt",
-    _body_velocity_command(0.0, 3.0, -2.0, 2.0),
+    "lafan_run_all_norm.pt",
+    # "pretrained_lafan_run.pt",
+    _body_velocity_command(
+      1.0,
+      5.0,
+      0.0,
+      0.0,
+      -0.0,
+      0.0,
+    ),
   )
 
 
@@ -129,15 +147,22 @@ def g1_body_velocity_amp_run_smp_env_cfg(play: bool = False) -> ManagerBasedRlEn
   return _body_velocity_base_cfg(
     play,
     "amp_run.pt",
-    _body_velocity_command(0.0, 3.0, -2.0, 2.0),
+    _body_velocity_command(0.0, 3.0, -3.0, 3.0, -2.0, 2.0),
   )
 
 
 def g1_body_velocity_lafan_walk_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _body_velocity_base_cfg(
     play,
-    "lafan_walk_local_norm_500.pt",
-    _body_velocity_command(0.15, 1.6, -0.8, 0.8),
+    "lafan_walk_all_norm.pt",
+    _body_velocity_command(
+      1.0,
+      3.0,
+      0.0,
+      0.0,
+      -0.0,
+      0.0,
+    ),
   )
 
 
@@ -149,7 +174,7 @@ def g1_body_velocity_lafan_walk_run_smp_env_cfg(play: bool = False) -> ManagerBa
   return _body_velocity_base_cfg(
     play,
     "lafan_walk_run_local_nrom.pt",
-    _body_velocity_command(0.25, 5.0, -2.0, 2.0),
+    _body_velocity_command(0.25, 5.0, -5.0, 5.0, -2.0, 2.0),
   )
 
 
@@ -157,13 +182,13 @@ def g1_body_velocity_amp_all_smp_env_cfg(play: bool = False) -> ManagerBasedRlEn
   return _body_velocity_base_cfg(
     play,
     "amp_all.pt",
-    _body_velocity_command(0.0, 5.0, -2.0, 2.0),
+    _body_velocity_command(0.0, 5.0, -5.0, 5.0, -2.0, 2.0),
   )
 
 
 def g1_body_velocity_lafan_walk_posture_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg = g1_body_velocity_lafan_walk_smp_env_cfg(play=play)
-  cfg.commands["steering"] = _body_velocity_command(0.15, 3.0, -1.0, 1.0)
+  cfg.commands["steering"] = _body_velocity_command(0.15, 3.0, -3.0, 3.0, -1.0, 1.0)
   cfg.rewards["base_upright"] = RewardTermCfg(func=mdp.base_upright_penalty, weight=-0.2)
   cfg.rewards["root_height"] = RewardTermCfg(func=mdp.root_height_below_target_penalty, weight=-0.2)
   cfg.rewards["action_rate"] = RewardTermCfg(func=mdp.action_rate_l2, weight=-0.005)
@@ -210,7 +235,7 @@ def g1_steering_with_stand_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvC
   cfg = _body_velocity_base_cfg(
     play,
     "pretrained_lafan_run.pt",
-    _body_velocity_command(0.3, 3.0, -1.0, 1.0, stand_sample_prob=0.2),
+    _body_velocity_command(0.3, 3.0, -3.0, 3.0, -1.0, 1.0, stand_sample_prob=0.2),
     RewardTermCfg(
       func=mdp.body_velocity_task_smp_product,
       weight=1.0,
@@ -234,7 +259,7 @@ def g1_zero_velocity_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg = _body_velocity_base_cfg(
     play,
     "pretrained_jushen_stand.pt",
-    _body_velocity_command(0.0, 0.5, 0.0, 0.0),
+    _body_velocity_command(0.0, 0.5, -0.5, 0.5, 0.0, 0.0),
     RewardTermCfg(
       func=mdp.body_velocity_task_smp_product,
       weight=1.0,
