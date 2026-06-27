@@ -418,6 +418,86 @@ class BodyVelocityCommand(CommandTerm):
     self.command_b[:, 0:2] = self.lin_vel_b
     self.command_b[:, 2] = self.yaw_rate
 
+  def _debug_vis_impl(self, visualizer: "DebugVisualizer") -> None:
+    env_indices = visualizer.get_env_indices(self.num_envs)
+    if not env_indices:
+      return
+
+    base_pos_ws = self.robot.data.root_link_pos_w.cpu().numpy()
+    heading_ws = self.robot.data.heading_w.cpu().numpy()
+    lin_vel_bs = self.lin_vel_b.cpu().numpy()
+    yaw_rates = self.yaw_rate.cpu().numpy()
+    actual_lin_vel_bs = self._root_lin_vel_b().cpu().numpy()
+    actual_yaw_rates = self._root_yaw_rate().cpu().numpy()
+
+    z = float(self.cfg.viz.z_offset)
+    actual_z = z + float(self.cfg.viz.actual_z_offset)
+    scale = float(self.cfg.viz.scale)
+    yaw_scale = float(self.cfg.viz.yaw_scale)
+    yaw_radius = float(self.cfg.viz.yaw_radius)
+
+    for batch in env_indices:
+      base_pos_w = base_pos_ws[batch]
+      if np.linalg.norm(base_pos_w) < 1e-6:
+        continue
+
+      heading_w = heading_ws[batch]
+      cos_h = math.cos(heading_w)
+      sin_h = math.sin(heading_w)
+      x_axis_w = np.array([cos_h, sin_h, 0.0])
+      y_axis_w = np.array([-sin_h, cos_h, 0.0])
+      origin = base_pos_w + np.array([0.0, 0.0, z])
+      actual_origin = base_pos_w + np.array([0.0, 0.0, actual_z])
+
+      # Body x velocity command (green), shown in world frame.
+      x_vec = x_axis_w * lin_vel_bs[batch, 0] * scale
+      visualizer.add_arrow(
+        origin, origin + x_vec, color=(0.0, 0.75, 0.2, 0.75), width=0.015
+      )
+
+      # Actual body x velocity (light green), slightly higher than command arrows.
+      actual_x_vec = x_axis_w * actual_lin_vel_bs[batch, 0] * scale
+      visualizer.add_arrow(
+        actual_origin,
+        actual_origin + actual_x_vec,
+        color=(0.55, 1.0, 0.55, 0.75),
+        width=0.01,
+      )
+
+      # Body y velocity command (orange), shown in world frame.
+      y_vec = y_axis_w * lin_vel_bs[batch, 1] * scale
+      visualizer.add_arrow(
+        origin, origin + y_vec, color=(1.0, 0.55, 0.0, 0.75), width=0.015
+      )
+
+      # Actual body y velocity (light orange).
+      actual_y_vec = y_axis_w * actual_lin_vel_bs[batch, 1] * scale
+      visualizer.add_arrow(
+        actual_origin,
+        actual_origin + actual_y_vec,
+        color=(1.0, 0.85, 0.35, 0.75),
+        width=0.01,
+      )
+
+      # Yaw-rate command (purple), drawn as a tangential arrow around the base.
+      yaw_start = origin + x_axis_w * yaw_radius + np.array([0.0, 0.0, 0.12])
+      yaw_vec = y_axis_w * yaw_rates[batch] * yaw_scale
+      visualizer.add_arrow(
+        yaw_start, yaw_start + yaw_vec, color=(0.55, 0.15, 1.0, 0.8), width=0.015
+      )
+
+      # Actual yaw rate (light purple), offset a little farther out.
+      actual_yaw_start = actual_origin + x_axis_w * (yaw_radius + 0.12) + np.array(
+        [0.0, 0.0, 0.12]
+      )
+      actual_yaw_vec = y_axis_w * actual_yaw_rates[batch] * yaw_scale
+      visualizer.add_arrow(
+        actual_yaw_start,
+        actual_yaw_start + actual_yaw_vec,
+        color=(0.82, 0.58, 1.0, 0.75),
+        width=0.01,
+      )
+
 
 @dataclass(kw_only=True)
 class BodyVelocityCommandCfg(CommandTermCfg):
@@ -436,7 +516,19 @@ class BodyVelocityCommandCfg(CommandTermCfg):
   stand_yaw_rate_max: float = 0.2
   reset_stand_mask_attr: str | None = None
 
+  @dataclass
+  class VizCfg:
+    z_offset: float = 0.35
+    actual_z_offset: float = 0.12
+    scale: float = 0.45
+    yaw_scale: float = 0.35
+    yaw_radius: float = 0.35
+
+  viz: VizCfg = None  # type: ignore[assignment]
+
   def __post_init__(self) -> None:
+    if self.viz is None:
+      self.viz = BodyVelocityCommandCfg.VizCfg()
     if self.lin_vel_x_max < self.lin_vel_x_min:
       msg = (
         f"lin_vel_x_max ({self.lin_vel_x_max}) must be >= "

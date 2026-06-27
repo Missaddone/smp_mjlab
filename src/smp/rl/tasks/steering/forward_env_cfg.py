@@ -13,6 +13,7 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 
 from smp.rl.env_cfg import g1_smp_env_cfg
+from smp.rl.rewards import task_smp_product
 from smp.rl.tasks.steering import mdp
 
 
@@ -26,9 +27,8 @@ def g1_forward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     resampling_time_range=(3.0, 8.0),
     rand_tar_dir=False,
     rand_face_dir=False,
-    tar_speed_min=0.0,
+    tar_speed_min=0.5,
     tar_speed_max=5.0,
-    speed_deadzone=0.5,
     debug_vis=True,
   )
 
@@ -43,19 +43,27 @@ def g1_forward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   # --- Rewards -------------------------------------------------------------
   # task = velocity tracking, gated by SMP.
   cfg.rewards["task_smp_product"] = RewardTermCfg(
-    func=mdp.forward_task_smp_product,
+    func=task_smp_product,
     weight=1.0,
     params={
-      "command_name": "steering",
-      "vel_err_scale": 0.5,
-      "fixed_timesteps": (8, 15, 22),
-      "ws": 6.0,
+      "task_terms": (
+        (
+          mdp.steering_target_velocity,
+          1.0,
+          {"command_name": "steering", "vel_err_scale": 0.5},
+        ),
+      ),
     },
   )
 
   # --- Events --------------------------------------------------------------
   cfg.events["init_smp_state"].params["ckpt_path"] = (
-    "datasets/pretrain_ckpt/pretrained_loco.pt"
+    # "datasets/pretrain_ckpt/pretrained_loco.pt"
+    # "datasets/pretrain_ckpt/lafan_walk_all_norm.pt"
+    # "datasets/pretrain_ckpt/lafan_run_local_norm.pt"
+    # "datasets/pretrain_ckpt/lafan_run_all_norm.pt"
+    # "datasets/pretrain_ckpt/pretrained_lafan_run.pt"
+    "datasets/pretrain_ckpt/amp_all_local_norm.pt"
   )
 
   # --- Terminations --------------------------------------------------------

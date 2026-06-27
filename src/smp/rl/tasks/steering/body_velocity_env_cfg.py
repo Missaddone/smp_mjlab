@@ -111,6 +111,7 @@ def _body_velocity_base_cfg(
   reward_cfg: RewardTermCfg | None = None,
 ) -> ManagerBasedRlEnvCfg:
   cfg = g1_steering_smp_env_cfg(play=play)
+  command_cfg.debug_vis = play
   cfg.commands["steering"] = command_cfg
   _set_body_velocity_actor_obs(cfg)
   cfg.events["init_smp_state"].params["ckpt_path"] = f"{PRETRAIN_CKPT_DIR}/{ckpt_name}"
@@ -122,15 +123,16 @@ def _body_velocity_base_cfg(
 def g1_body_velocity_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _body_velocity_base_cfg(
     play,
-    "pretrained_lafan_run.pt",
-    _body_velocity_command(0.0, 3.0, -3.0, 3.0, -2.0, 2.0),
+    # "pretrained_lafan_run.pt",
+    "lafan_run_clips_lafan_norm_3600.pt",
+    _body_velocity_command(-3.0, 5.0, -2.0, 2.0, -1.0, 1.0),
   )
 
 
 def g1_body_velocity_lafan_run_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _body_velocity_base_cfg(
     play,
-    "lafan_run_all_norm.pt",
+    "lafan_run_all_norm_suzhi_1100.pt",
     # "pretrained_lafan_run.pt",
     _body_velocity_command(
       1.0,
@@ -188,7 +190,7 @@ def g1_body_velocity_amp_all_smp_env_cfg(play: bool = False) -> ManagerBasedRlEn
 
 def g1_body_velocity_lafan_walk_posture_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg = g1_body_velocity_lafan_walk_smp_env_cfg(play=play)
-  cfg.commands["steering"] = _body_velocity_command(0.15, 3.0, -3.0, 3.0, -1.0, 1.0)
+  cfg.commands["steering"] = _body_velocity_command(0.15, 3.0, -1.0, 1.0, -1.0, 1.0)
   cfg.rewards["base_upright"] = RewardTermCfg(func=mdp.base_upright_penalty, weight=-0.2)
   cfg.rewards["root_height"] = RewardTermCfg(func=mdp.root_height_below_target_penalty, weight=-0.2)
   cfg.rewards["action_rate"] = RewardTermCfg(func=mdp.action_rate_l2, weight=-0.005)
