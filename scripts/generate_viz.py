@@ -42,7 +42,7 @@ class Cfg:
   """W&B run path '<entity>/<project>/<run_id>'. Downloads the latest .pt from the run."""
   device: str = ""
   """Compute device. Empty = auto."""
-  fps: float = 50.0
+  fps: float = 20.0
   """Playback frame rate."""
 
 
