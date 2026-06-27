@@ -157,7 +157,7 @@ def g1_body_velocity_amp_run_smp_env_cfg(play: bool = False) -> ManagerBasedRlEn
 def g1_body_velocity_lafan_walk_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _body_velocity_base_cfg(
     play,
-    "lafan_walk_clips_lafan_norm_10800.pt",
+    "lafan_walk_clips2_lafan_norm_12000.pt",
     _body_velocity_command(
       -1.0,
       3.0,

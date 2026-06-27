@@ -116,7 +116,7 @@ def g1_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   # --- Events --------------------------------------------------------------
   cfg.events["init_smp_state"].params["ckpt_path"] = (
-    "datasets/pretrain_ckpt/lafan_walk_clips_lafan_norm_10800.pt"
+    "datasets/pretrain_ckpt/lafan_walk_clips2_lafan_norm_12000.pt"
   )
 
   # --- Terminations --------------------------------------------------------
