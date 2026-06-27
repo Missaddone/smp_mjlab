@@ -88,8 +88,8 @@ def g1_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     resampling_time_range=(3.0, 8.0),
     rand_tar_dir=False,
     rand_face_dir=False,
-    tar_speed_min=-3.0,
-    tar_speed_max=5.0,
+    tar_speed_min=-1.0,
+    tar_speed_max=3.0,
     debug_vis=True,
   )
 
@@ -108,7 +108,7 @@ def g1_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     params={
       "command_name": "steering",
       "vel_err_scale": 0.5,
-      "style_floor": 0.3,
+      "style_floor": 0.0,
       "fixed_timesteps": (8, 15, 22),
       "ws": 6.0,
     },
@@ -116,7 +116,7 @@ def g1_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   # --- Events --------------------------------------------------------------
   cfg.events["init_smp_state"].params["ckpt_path"] = (
-    "datasets/pretrain_ckpt/lafan_run_clips_lafan_norm_3600.pt"
+    "datasets/pretrain_ckpt/lafan_walk_clips_lafan_norm_10800.pt"
   )
 
   # --- Terminations --------------------------------------------------------

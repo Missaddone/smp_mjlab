@@ -124,7 +124,8 @@ def g1_body_velocity_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _body_velocity_base_cfg(
     play,
     # "pretrained_lafan_run.pt",
-    "lafan_run_clips_lafan_norm_3600.pt",
+    # "lafan_run_clips_lafan_norm_3600.pt",
+    "lafan_walk_clips_lafan_norm_10800.pt",
     _body_velocity_command(-3.0, 5.0, -2.0, 2.0, -1.0, 1.0),
   )
 
@@ -149,21 +150,21 @@ def g1_body_velocity_amp_run_smp_env_cfg(play: bool = False) -> ManagerBasedRlEn
   return _body_velocity_base_cfg(
     play,
     "amp_run.pt",
-    _body_velocity_command(0.0, 3.0, -3.0, 3.0, -2.0, 2.0),
+    _body_velocity_command(-1.0, 3.0, -1.0, 1.0, -2.0, 2.0),
   )
 
 
 def g1_body_velocity_lafan_walk_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   return _body_velocity_base_cfg(
     play,
-    "lafan_walk_all_norm.pt",
+    "lafan_walk_clips_lafan_norm_10800.pt",
     _body_velocity_command(
-      1.0,
+      -1.0,
       3.0,
-      0.0,
-      0.0,
-      -0.0,
-      0.0,
+      -1.0,
+      1.0,
+      -2.0,
+      2.0,
     ),
   )
 
