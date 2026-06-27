@@ -13,7 +13,10 @@ from smp.rl.tasks.steering.body_velocity_env_cfg import (
   g1_steering_modified_smp_env_cfg,
   g1_steering_with_stand_smp_env_cfg,
 )
-from smp.rl.tasks.steering.forward_env_cfg import g1_forward_smp_env_cfg
+from smp.rl.tasks.steering.forward_env_cfg import (
+  g1_forward_backward_smp_env_cfg,
+  g1_forward_smp_env_cfg,
+)
 from smp.rl.tasks.steering.steering_env_cfg import g1_steering_smp_env_cfg
 from smp.rl.tasks.steering.upstairs_env_cfg import g1_upstairs_smp_env_cfg
 
@@ -44,6 +47,15 @@ register_mjlab_task(
   env_cfg=g1_forward_smp_env_cfg(play=False),
   play_env_cfg=g1_forward_smp_env_cfg(play=True),
   rl_cfg=_forward_rl,
+)
+
+_forward_backward_rl = _runner("smp_forward_backward_g1")
+
+register_mjlab_task(
+  task_id="Smp-ForwardBackward-G1",
+  env_cfg=g1_forward_backward_smp_env_cfg(play=False),
+  play_env_cfg=g1_forward_backward_smp_env_cfg(play=True),
+  rl_cfg=_forward_backward_rl,
 )
 
 _upstairs_rl = _runner("smp_upstairs_g1")
@@ -115,6 +127,7 @@ for _suffix, _env_builder in BODY_VELOCITY_TASKS.items():
 
 __all__ = [
   "g1_forward_smp_env_cfg",
+  "g1_forward_backward_smp_env_cfg",
   "g1_steering_smp_env_cfg",
   "g1_upstairs_smp_env_cfg",
   "g1_steering_modified_smp_env_cfg",

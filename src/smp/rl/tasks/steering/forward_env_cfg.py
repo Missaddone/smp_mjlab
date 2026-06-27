@@ -63,7 +63,60 @@ def g1_forward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # "datasets/pretrain_ckpt/lafan_run_local_norm.pt"
     # "datasets/pretrain_ckpt/lafan_run_all_norm.pt"
     # "datasets/pretrain_ckpt/pretrained_lafan_run.pt"
-    "datasets/pretrain_ckpt/amp_all_local_norm.pt"
+    "datasets/pretrain_ckpt/lafan_run_clips_lafan_norm_3600.pt"
+  )
+
+  # --- Terminations --------------------------------------------------------
+  cfg.terminations["base_too_low"] = TerminationTermCfg(
+    func=mdp.root_height_below_minimum,
+    params={
+      "minimum_height": 0.3,
+      "asset_cfg": SceneEntityCfg("robot"),
+    },
+  )
+
+  return cfg
+
+
+def g1_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  """Build a fixed-heading signed-speed task that can reward backward motion."""
+  cfg = g1_smp_env_cfg(play=play)
+
+  # --- Commands ------------------------------------------------------------
+  cfg.commands["steering"] = mdp.SteeringCommandCfg(
+    entity_name="robot",
+    resampling_time_range=(3.0, 8.0),
+    rand_tar_dir=False,
+    rand_face_dir=False,
+    tar_speed_min=-3.0,
+    tar_speed_max=5.0,
+    debug_vis=True,
+  )
+
+  # --- Observations --------------------------------------------------------
+  command_obs = ObservationTermCfg(
+    func=mdp.generated_commands,
+    params={"command_name": "steering"},
+  )
+  cfg.observations["actor"].terms["command"] = command_obs
+  cfg.observations["critic"].terms["command"] = command_obs
+
+  # --- Rewards -------------------------------------------------------------
+  cfg.rewards["task_smp_product"] = RewardTermCfg(
+    func=mdp.signed_forward_task_smp_blend,
+    weight=1.0,
+    params={
+      "command_name": "steering",
+      "vel_err_scale": 0.5,
+      "style_floor": 0.3,
+      "fixed_timesteps": (8, 15, 22),
+      "ws": 6.0,
+    },
+  )
+
+  # --- Events --------------------------------------------------------------
+  cfg.events["init_smp_state"].params["ckpt_path"] = (
+    "datasets/pretrain_ckpt/lafan_run_clips_lafan_norm_3600.pt"
   )
 
   # --- Terminations --------------------------------------------------------

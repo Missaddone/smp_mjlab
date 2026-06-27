@@ -166,6 +166,44 @@ def steering_target_velocity(
   return reward
 
 
+def steering_signed_target_velocity(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 0.5,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Signed speed velocity tracking without filtering negative projection.
+
+  This is intended for fixed-direction commands that may sample negative speed:
+  a negative target speed should reward moving backward along ``tar_dir_w``.
+  """
+  asset = env.scene[asset_cfg.name]
+  cmd: "SteeringCommand" = env.command_manager.get_term(command_name)  # type: ignore[assignment]
+
+  root_vel_xy = asset.data.root_link_lin_vel_w[:, :2]
+  tar_vel = cmd.tar_speed.unsqueeze(-1) * cmd.tar_dir_w
+  vel_err = ((tar_vel - root_vel_xy) ** 2).sum(dim=-1)
+  return torch.exp(-vel_err_scale * vel_err)
+
+
+def signed_forward_task_smp_blend(
+  env: "ManagerBasedRlEnv",
+  command_name: str = "steering",
+  vel_err_scale: float = 0.5,
+  style_floor: float = 0.3,
+  fixed_timesteps: tuple[int, ...] = (8, 15, 22),
+  ws: float = 6.0,
+) -> torch.Tensor:
+  if not 0.0 <= style_floor <= 1.0:
+    msg = f"style_floor must be in [0, 1], got {style_floor}."
+    raise ValueError(msg)
+  task = steering_signed_target_velocity(
+    env, command_name=command_name, vel_err_scale=vel_err_scale
+  )
+  style = smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+  return task * (style_floor + (1.0 - style_floor) * style)
+
+
 def steering_face_direction(
   env: "ManagerBasedRlEnv",
   command_name: str,

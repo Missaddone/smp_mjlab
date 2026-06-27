@@ -195,10 +195,10 @@ class SteeringCommand(CommandTerm):
       enabled = server.gui.add_checkbox("Enable", initial_value=False)
       speed_slider = server.gui.add_slider(
         "tar_speed",
-        min=0.0,
+        min=float(self.cfg.tar_speed_min),
         max=float(self.cfg.tar_speed_max),
         step=0.1,
-        initial_value=1.0,
+        initial_value=max(float(self.cfg.tar_speed_min), min(1.0, float(self.cfg.tar_speed_max))),
       )
       tar_angle_slider = server.gui.add_slider(
         "tar_angle (rad)",
