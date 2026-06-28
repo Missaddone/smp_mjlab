@@ -7,11 +7,12 @@ import.
 from mjlab.tasks.registry import register_mjlab_task
 
 from smp.rl.rl_cfg import unitree_g1_smp_ppo_runner_cfg
+from smp.rl.tasks.steering.body_forward_backward_env_cfg import (
+  g1_body_forward_backward_smp_env_cfg,
+)
 from smp.rl.tasks.steering.body_velocity_env_cfg import (
   BODY_VELOCITY_TASKS,
-  g1_steering_double_prior_smp_env_cfg,
   g1_steering_modified_smp_env_cfg,
-  g1_steering_with_stand_smp_env_cfg,
 )
 from smp.rl.tasks.steering.forward_env_cfg import (
   g1_forward_backward_smp_env_cfg,
@@ -58,6 +59,19 @@ register_mjlab_task(
   rl_cfg=_forward_backward_rl,
 )
 
+_body_forward_backward_rl = _runner(
+  "smp_body_forward_backward_g1",
+  init_std=0.6,
+  entropy_coef=0.005,
+)
+
+register_mjlab_task(
+  task_id="Smp-BodyForwardBackward-G1",
+  env_cfg=g1_body_forward_backward_smp_env_cfg(play=False),
+  play_env_cfg=g1_body_forward_backward_smp_env_cfg(play=True),
+  rl_cfg=_body_forward_backward_rl,
+)
+
 _upstairs_rl = _runner("smp_upstairs_g1")
 
 register_mjlab_task(
@@ -75,40 +89,16 @@ register_mjlab_task(
   rl_cfg=_steering_modified_rl,
 )
 
-_steering_with_stand_rl = _runner("smp_steering_with_stand_g1")
-register_mjlab_task(
-  task_id="Smp-Steering-WithStand-G1",
-  env_cfg=g1_steering_with_stand_smp_env_cfg(play=False),
-  play_env_cfg=g1_steering_with_stand_smp_env_cfg(play=True),
-  rl_cfg=_steering_with_stand_rl,
-)
-
-_steering_double_prior_rl = _runner("smp_steering_doubleprior_g1")
-register_mjlab_task(
-  task_id="Smp-Steering-DoublePrior-G1",
-  env_cfg=g1_steering_double_prior_smp_env_cfg(play=False),
-  play_env_cfg=g1_steering_double_prior_smp_env_cfg(play=True),
-  rl_cfg=_steering_double_prior_rl,
-)
-
 _BODY_VELOCITY_RUNNER_NAMES = {
   "BodyVelocity": "smp_body_velocity_g1",
-  "BodyVelocity-LafanRun": "smp_body_velocity_lafan_run_g1",
-  "BodyVelocity-AmpRun": "smp_body_velocity_amp_run_g1",
-  "BodyVelocity-LafanWalk": "smp_body_velocity_lafan_walk_g1",
-  "BodyVelocity-LafanWalk-Matched": "smp_body_velocity_lafan_walk_matched_g1",
-  "BodyVelocity-LafanWalk-Posture": "smp_body_velocity_lafan_walk_posture_g1",
-  "BodyVelocity-LafanWalkRun": "smp_body_velocity_lafan_walk_run_g1",
-  "BodyVelocity-AmpAll": "smp_body_velocity_amp_all_g1",
-  "BodyVelocity-HandCollision": "smp_body_velocity_hand_collision_g1",
+  "BodyVelocity-Walk": "smp_body_velocity_walk_g1",
+  "BodyVelocity-Run": "smp_body_velocity_run_g1",
   "BodyVelocity-FootRegularized": "smp_body_velocity_foot_regularized_g1",
-  "ZeroVelocity": "smp_zero_velocity_g1",
 }
 
 _BODY_VELOCITY_HIGH_NOISE = {
-  "BodyVelocity-LafanRun",
-  "BodyVelocity-AmpRun",
-  "BodyVelocity-LafanWalk",
+  "BodyVelocity-Walk",
+  "BodyVelocity-Run",
 }
 
 for _suffix, _env_builder in BODY_VELOCITY_TASKS.items():
@@ -128,9 +118,8 @@ for _suffix, _env_builder in BODY_VELOCITY_TASKS.items():
 __all__ = [
   "g1_forward_smp_env_cfg",
   "g1_forward_backward_smp_env_cfg",
+  "g1_body_forward_backward_smp_env_cfg",
   "g1_steering_smp_env_cfg",
   "g1_upstairs_smp_env_cfg",
   "g1_steering_modified_smp_env_cfg",
-  "g1_steering_with_stand_smp_env_cfg",
-  "g1_steering_double_prior_smp_env_cfg",
 ]

@@ -31,27 +31,6 @@ def _dir_world_to_local(dir_w: torch.Tensor, heading_w: torch.Tensor) -> torch.T
   return torch.stack([cos_h * x_w + sin_h * y_w, -sin_h * x_w + cos_h * y_w], dim=-1)
 
 
-def _deadzone_bounds(cfg: "SteeringCommandCfg") -> tuple[float, float]:
-  lower = cfg.speed_deadzone_min
-  upper = cfg.speed_deadzone_max
-  if lower is None and upper is None:
-    lower = cfg.tar_speed_min
-    upper = cfg.speed_deadzone
-  elif lower is None:
-    lower = cfg.tar_speed_min
-  elif upper is None:
-    upper = cfg.speed_deadzone
-  return lower, upper
-
-
-def _has_two_bin_speed_sampling(cfg: "SteeringCommandCfg") -> bool:
-  return (
-    cfg.stand_sample_prob > 0.0
-    and cfg.run_speed_min is not None
-    and cfg.run_speed_max is not None
-  )
-
-
 class SteeringCommand(CommandTerm):
   """Periodic target dir + speed + face dir command (world frame internally)."""
 
@@ -108,62 +87,9 @@ class SteeringCommand(CommandTerm):
     self.tar_dir_w[env_ids, 0] = torch.cos(theta)
     self.tar_dir_w[env_ids, 1] = torch.sin(theta)
 
-    if _has_two_bin_speed_sampling(self.cfg):
-      run_speed_min = max(float(self.cfg.run_speed_min), self.cfg.tar_speed_min)
-      run_speed_max = min(float(self.cfg.run_speed_max), self.cfg.tar_speed_max)
-      if run_speed_max <= run_speed_min:
-        msg = f"Invalid run speed interval [{run_speed_min}, {run_speed_max}]."
-        raise ValueError(msg)
-      stand_mask = torch.rand(n, device=self.device) < self.cfg.stand_sample_prob
-      speeds = torch.empty(n, device=self.device)
-      if stand_mask.any():
-        speeds[stand_mask] = self.cfg.stand_speed
-      if (~stand_mask).any():
-        speeds[~stand_mask] = torch.empty(int((~stand_mask).sum()), device=self.device).uniform_(
-          run_speed_min, run_speed_max
-        )
-      self.tar_speed[env_ids] = speeds
-    else:
-      deadzone_min, deadzone_max = _deadzone_bounds(self.cfg)
-      deadzone_min = max(deadzone_min, self.cfg.tar_speed_min)
-      deadzone_max = min(deadzone_max, self.cfg.tar_speed_max)
-      has_deadzone = deadzone_max > deadzone_min
-      if self.cfg.deadzone_sample_prob > 0.0 and has_deadzone:
-        deadzone_mask = torch.rand(n, device=self.device) < self.cfg.deadzone_sample_prob
-        speeds = torch.empty(n, device=self.device)
-        if deadzone_mask.any():
-          speeds[deadzone_mask] = torch.empty(int(deadzone_mask.sum()), device=self.device).uniform_(
-            deadzone_min, deadzone_max
-          )
-        if (~deadzone_mask).any():
-          moving_count = int((~deadzone_mask).sum())
-          moving_speeds = torch.empty(moving_count, device=self.device)
-          lower_len = max(deadzone_min - self.cfg.tar_speed_min, 0.0)
-          upper_len = max(self.cfg.tar_speed_max - deadzone_max, 0.0)
-          if lower_len == 0.0 and upper_len == 0.0:
-            moving_speeds.uniform_(deadzone_min, deadzone_max)
-          elif lower_len > 0.0 and upper_len > 0.0:
-            lower_mask = torch.rand(moving_count, device=self.device) < lower_len / (
-              lower_len + upper_len
-            )
-            if lower_mask.any():
-              moving_speeds[lower_mask] = torch.empty(
-                int(lower_mask.sum()), device=self.device
-              ).uniform_(self.cfg.tar_speed_min, deadzone_min)
-            if (~lower_mask).any():
-              moving_speeds[~lower_mask] = torch.empty(
-                int((~lower_mask).sum()), device=self.device
-              ).uniform_(deadzone_max, self.cfg.tar_speed_max)
-          elif lower_len > 0.0:
-            moving_speeds.uniform_(self.cfg.tar_speed_min, deadzone_min)
-          else:
-            moving_speeds.uniform_(deadzone_max, self.cfg.tar_speed_max)
-          speeds[~deadzone_mask] = moving_speeds
-        self.tar_speed[env_ids] = speeds
-      else:
-        self.tar_speed[env_ids] = torch.empty(n, device=self.device).uniform_(
-          self.cfg.tar_speed_min, self.cfg.tar_speed_max
-        )
+    self.tar_speed[env_ids] = torch.empty(n, device=self.device).uniform_(
+      self.cfg.tar_speed_min, self.cfg.tar_speed_max
+    )
 
     if self.cfg.rand_face_dir:
       face_theta = torch.empty(n, device=self.device).uniform_(-math.pi, math.pi)
@@ -301,15 +227,6 @@ class SteeringCommandCfg(CommandTermCfg):
   rand_face_dir: bool = True
   tar_speed_min: float = 0.5
   tar_speed_max: float = 3.0
-  speed_deadzone: float = 0.0
-  speed_deadzone_min: float | None = None
-  speed_deadzone_max: float | None = None
-  deadzone_sample_prob: float = 0.0
-  stand_sample_prob: float = 0.0
-  stand_speed: float = 0.0
-  stand_speed_tolerance: float = 1e-4
-  run_speed_min: float | None = None
-  run_speed_max: float | None = None
 
   @dataclass
   class VizCfg:
@@ -374,42 +291,17 @@ class BodyVelocityCommand(CommandTerm):
     if n == 0:
       return
 
-    stand_mask = torch.rand(n, device=self.device) < self.cfg.stand_sample_prob
-    if self.cfg.reset_stand_mask_attr is not None:
-      reset_labels = getattr(self._env, self.cfg.reset_stand_mask_attr, None)
-      if reset_labels is not None:
-        forced_mask = reset_labels[env_ids] >= 0
-        if forced_mask.any():
-          stand_mask[forced_mask] = reset_labels[env_ids[forced_mask]].bool()
-          reset_labels[env_ids[forced_mask]] = -1
-
     lin_vel_b = torch.empty(n, 2, device=self.device)
-    if stand_mask.any():
-      lin_vel_b[stand_mask, 0] = torch.empty(
-        int(stand_mask.sum()), device=self.device
-      ).uniform_(self.cfg.stand_lin_vel_x_min, self.cfg.stand_lin_vel_x_max)
-      lin_vel_b[stand_mask, 1] = torch.empty(
-        int(stand_mask.sum()), device=self.device
-      ).uniform_(self.cfg.stand_lin_vel_y_min, self.cfg.stand_lin_vel_y_max)
-    if (~stand_mask).any():
-      moving_count = int((~stand_mask).sum())
-      lin_vel_b[~stand_mask, 0] = torch.empty(moving_count, device=self.device).uniform_(
-        self.cfg.lin_vel_x_min, self.cfg.lin_vel_x_max
-      )
-      lin_vel_b[~stand_mask, 1] = torch.empty(moving_count, device=self.device).uniform_(
-        self.cfg.lin_vel_y_min, self.cfg.lin_vel_y_max
-      )
+    lin_vel_b[:, 0] = torch.empty(n, device=self.device).uniform_(
+      self.cfg.lin_vel_x_min, self.cfg.lin_vel_x_max
+    )
+    lin_vel_b[:, 1] = torch.empty(n, device=self.device).uniform_(
+      self.cfg.lin_vel_y_min, self.cfg.lin_vel_y_max
+    )
     self.lin_vel_b[env_ids] = lin_vel_b
 
     yaw_rate = torch.empty(n, device=self.device)
-    if stand_mask.any():
-      yaw_rate[stand_mask] = torch.empty(int(stand_mask.sum()), device=self.device).uniform_(
-        -self.cfg.stand_yaw_rate_max, self.cfg.stand_yaw_rate_max
-      )
-    if (~stand_mask).any():
-      yaw_rate[~stand_mask] = torch.empty(int((~stand_mask).sum()), device=self.device).uniform_(
-        self.cfg.yaw_rate_min, self.cfg.yaw_rate_max
-      )
+    yaw_rate.uniform_(self.cfg.yaw_rate_min, self.cfg.yaw_rate_max)
     self.yaw_rate[env_ids] = yaw_rate
     self.command_b[env_ids, 0:2] = self.lin_vel_b[env_ids]
     self.command_b[env_ids, 2] = self.yaw_rate[env_ids]
@@ -508,13 +400,6 @@ class BodyVelocityCommandCfg(CommandTermCfg):
   lin_vel_y_max: float = 1.0
   yaw_rate_min: float = -1.0
   yaw_rate_max: float = 1.0
-  stand_sample_prob: float = 0.2
-  stand_lin_vel_x_min: float = -0.15
-  stand_lin_vel_x_max: float = 0.15
-  stand_lin_vel_y_min: float = -0.15
-  stand_lin_vel_y_max: float = 0.15
-  stand_yaw_rate_max: float = 0.2
-  reset_stand_mask_attr: str | None = None
 
   @dataclass
   class VizCfg:
@@ -539,18 +424,6 @@ class BodyVelocityCommandCfg(CommandTermCfg):
       msg = (
         f"lin_vel_y_max ({self.lin_vel_y_max}) must be >= "
         f"lin_vel_y_min ({self.lin_vel_y_min})."
-      )
-      raise ValueError(msg)
-    if self.stand_lin_vel_x_max < self.stand_lin_vel_x_min:
-      msg = (
-        f"stand_lin_vel_x_max ({self.stand_lin_vel_x_max}) must be >= "
-        f"stand_lin_vel_x_min ({self.stand_lin_vel_x_min})."
-      )
-      raise ValueError(msg)
-    if self.stand_lin_vel_y_max < self.stand_lin_vel_y_min:
-      msg = (
-        f"stand_lin_vel_y_max ({self.stand_lin_vel_y_max}) must be >= "
-        f"stand_lin_vel_y_min ({self.stand_lin_vel_y_min})."
       )
       raise ValueError(msg)
 

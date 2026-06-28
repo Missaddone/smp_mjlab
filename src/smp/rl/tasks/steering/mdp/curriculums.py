@@ -14,6 +14,38 @@ if TYPE_CHECKING:
 _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
 
 
+def body_velocity_command_ranges(
+  env: "ManagerBasedRlEnv",
+  env_ids: torch.Tensor,
+  command_name: str,
+  velocity_stages: list[dict[str, object]],
+) -> dict[str, torch.Tensor]:
+  """Update a ``BodyVelocityCommandCfg`` range from staged training steps."""
+  del env_ids
+  command_term = env.command_manager.get_term(command_name)
+  assert command_term is not None
+  cfg = command_term.cfg
+
+  for stage in velocity_stages:
+    if env.common_step_counter < int(stage["step"]):
+      continue
+    if stage.get("lin_vel_x") is not None:
+      cfg.lin_vel_x_min, cfg.lin_vel_x_max = stage["lin_vel_x"]
+    if stage.get("lin_vel_y") is not None:
+      cfg.lin_vel_y_min, cfg.lin_vel_y_max = stage["lin_vel_y"]
+    if stage.get("yaw_rate") is not None:
+      cfg.yaw_rate_min, cfg.yaw_rate_max = stage["yaw_rate"]
+
+  return {
+    "lin_vel_x_min": torch.tensor(cfg.lin_vel_x_min),
+    "lin_vel_x_max": torch.tensor(cfg.lin_vel_x_max),
+    "lin_vel_y_min": torch.tensor(cfg.lin_vel_y_min),
+    "lin_vel_y_max": torch.tensor(cfg.lin_vel_y_max),
+    "yaw_rate_min": torch.tensor(cfg.yaw_rate_min),
+    "yaw_rate_max": torch.tensor(cfg.yaw_rate_max),
+  }
+
+
 def upstairs_terrain_levels(
   env: "ManagerBasedRlEnv",
   env_ids: torch.Tensor,
