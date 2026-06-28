@@ -126,7 +126,7 @@ def g1_body_velocity_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # "pretrained_lafan_run.pt",
     # "lafan_run_clips_lafan_norm_3600.pt",
     # "lafan_walk_clips_lafan_norm_10800.pt",
-    "amp_run_clips2_mirrored_lafan_norm_128.pt",
+    "amp_loco_clips2_mirrored_lafan_norm_128.pt",
     _body_velocity_command(-3.0, 5.0, -2.0, 2.0, -1.0, 1.0),
   )
 

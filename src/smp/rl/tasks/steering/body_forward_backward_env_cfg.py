@@ -109,48 +109,6 @@ def _add_foot_sensors_and_critic_obs(cfg: ManagerBasedRlEnvCfg, play: bool) -> N
   )
 
 
-def _posture_std_slow() -> dict[str, float]:
-  return {
-    r".*hip_pitch.*": 0.65,
-    r".*knee.*": 0.65,
-    r".*ankle_pitch.*": 0.30,
-    r".*hip_roll.*": 0.18,
-    r".*hip_yaw.*": 0.18,
-    r".*ankle_roll.*": 0.12,
-    r".*waist_yaw.*": 0.18,
-    r".*waist_roll.*": 0.12,
-    r".*waist_pitch.*": 0.12,
-    r".*shoulder_pitch.*": 0.30,
-    r".*shoulder_roll.*": 0.20,
-    r".*shoulder_yaw.*": 0.20,
-    r".*elbow.*": 0.25,
-    r".*wrist_roll.*": 0.30,
-    r".*wrist_pitch.*": 0.30,
-    r".*wrist_yaw.*": 0.30,
-  }
-
-
-def _posture_std_fast() -> dict[str, float]:
-  return {
-    r".*hip_pitch.*": 0.80,
-    r".*knee.*": 0.80,
-    r".*ankle_pitch.*": 0.40,
-    r".*hip_roll.*": 0.25,
-    r".*hip_yaw.*": 0.25,
-    r".*ankle_roll.*": 0.14,
-    r".*waist_yaw.*": 0.25,
-    r".*waist_roll.*": 0.14,
-    r".*waist_pitch.*": 0.14,
-    r".*shoulder_pitch.*": 0.40,
-    r".*shoulder_roll.*": 0.25,
-    r".*shoulder_yaw.*": 0.25,
-    r".*elbow.*": 0.35,
-    r".*wrist_roll.*": 0.35,
-    r".*wrist_pitch.*": 0.35,
-    r".*wrist_yaw.*": 0.35,
-  }
-
-
 def g1_body_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   """Build the body-frame x velocity task.
 
@@ -168,7 +126,7 @@ def g1_body_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEn
   _add_foot_sensors_and_critic_obs(cfg, play=play)
 
   cfg.events["init_smp_state"].params["ckpt_path"] = (
-    f"{PRETRAIN_CKPT_DIR}/amp_loco_clips2_mirrored_lafan_norm_12000.pt"
+    f"{PRETRAIN_CKPT_DIR}/amp_loco_clips2_mirrored_lafan_norm_128.pt"
   )
 
   cfg.rewards.clear()
@@ -186,33 +144,11 @@ def g1_body_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEn
     },
   )
   _add_smp_reward_component_logs(cfg)
-  cfg.rewards["posture"] = RewardTermCfg(
-    func=mdp.speed_dependent_joint_posture_reward,
-    weight=0.15,
-    params={
-      "command_name": "steering",
-      "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
-      "std_slow": _posture_std_slow(),
-      "std_fast": _posture_std_fast(),
-      "fast_threshold": 1.5,
-    },
-  )
   cfg.rewards["feet_slip"] = RewardTermCfg(
     func=velocity_mdp.feet_slip,
     weight=-0.10,
     params={
       "sensor_name": "feet_ground_contact",
-      "command_name": "steering",
-      "command_threshold": 0.15,
-      "asset_cfg": SceneEntityCfg("robot", site_names=FOOT_SITE_NAMES),
-    },
-  )
-  cfg.rewards["foot_clearance"] = RewardTermCfg(
-    func=velocity_mdp.feet_clearance,
-    weight=-0.25,
-    params={
-      "target_height": 0.10,
-      "height_sensor_name": "foot_height_scan",
       "command_name": "steering",
       "command_threshold": 0.15,
       "asset_cfg": SceneEntityCfg("robot", site_names=FOOT_SITE_NAMES),
