@@ -14,7 +14,21 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 
 from smp.rl.env_cfg import g1_smp_env_cfg
+from smp.rl.rewards import smp_reward_component_log
 from smp.rl.tasks.steering import mdp
+
+
+def _add_smp_reward_component_logs(cfg: ManagerBasedRlEnvCfg) -> None:
+  cfg.rewards["task_reward"] = RewardTermCfg(
+    func=smp_reward_component_log,
+    weight=1.0,
+    params={"component": "task_reward", "log_name": "task_reward"},
+  )
+  cfg.rewards["style_reward"] = RewardTermCfg(
+    func=smp_reward_component_log,
+    weight=1.0,
+    params={"component": "style_reward", "log_name": "style_reward"},
+  )
 
 
 def g1_steering_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -54,6 +68,7 @@ def g1_steering_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       "ws": 6.0,
     },
   )
+  _add_smp_reward_component_logs(cfg)
 
   # --- Events --------------------------------------------------------------
   cfg.events["init_smp_state"].params["ckpt_path"] = (

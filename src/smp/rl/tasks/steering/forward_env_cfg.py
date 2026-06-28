@@ -13,8 +13,21 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 
 from smp.rl.env_cfg import g1_smp_env_cfg
-from smp.rl.rewards import task_smp_product
+from smp.rl.rewards import smp_reward_component_log, task_smp_product
 from smp.rl.tasks.steering import mdp
+
+
+def _add_smp_reward_component_logs(cfg: ManagerBasedRlEnvCfg) -> None:
+  cfg.rewards["task_reward"] = RewardTermCfg(
+    func=smp_reward_component_log,
+    weight=1.0,
+    params={"component": "task_reward", "log_name": "task_reward"},
+  )
+  cfg.rewards["style_reward"] = RewardTermCfg(
+    func=smp_reward_component_log,
+    weight=1.0,
+    params={"component": "style_reward", "log_name": "style_reward"},
+  )
 
 
 def g1_forward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -27,7 +40,7 @@ def g1_forward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     resampling_time_range=(3.0, 8.0),
     rand_tar_dir=False,
     rand_face_dir=False,
-    tar_speed_min=0.5,
+    tar_speed_min=2.0,
     tar_speed_max=5.0,
     debug_vis=True,
   )
@@ -55,6 +68,7 @@ def g1_forward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       ),
     },
   )
+  _add_smp_reward_component_logs(cfg)
 
   # --- Events --------------------------------------------------------------
   cfg.events["init_smp_state"].params["ckpt_path"] = (
@@ -63,7 +77,7 @@ def g1_forward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # "datasets/pretrain_ckpt/lafan_run_local_norm.pt"
     # "datasets/pretrain_ckpt/lafan_run_all_norm.pt"
     # "datasets/pretrain_ckpt/pretrained_lafan_run.pt"
-    "datasets/pretrain_ckpt/lafan_run_clips_lafan_norm_3600.pt"
+    "datasets/pretrain_ckpt/amp_run_clips2_mirrored_lafan_norm_128.pt"
   )
 
   # --- Terminations --------------------------------------------------------
@@ -113,10 +127,11 @@ def g1_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       "ws": 6.0,
     },
   )
+  _add_smp_reward_component_logs(cfg)
 
   # --- Events --------------------------------------------------------------
   cfg.events["init_smp_state"].params["ckpt_path"] = (
-    "datasets/pretrain_ckpt/lafan_walk_clips2_lafan_norm_12000.pt"
+    "datasets/pretrain_ckpt/amp_loco_clips2_mirrored_lafan_norm_12000.pt"
   )
 
   # --- Terminations --------------------------------------------------------

@@ -110,6 +110,43 @@ def smp_guidance_reward(
   return full_reward
 
 
+def _cache_smp_reward_components(
+  env: ManagerBasedRlEnv,
+  task_reward: torch.Tensor,
+  style_reward: torch.Tensor,
+  product_reward: torch.Tensor,
+) -> None:
+  env._smp_reward_components = {  # type: ignore[attr-defined]
+    "task_reward": task_reward.detach(),
+    "style_reward": style_reward.detach(),
+    "task_smp_product": product_reward.detach(),
+  }
+
+
+def smp_reward_component_log(
+  env: ManagerBasedRlEnv,
+  component: str,
+  log_name: str,
+) -> torch.Tensor:
+  """Log a cached SMP reward component under Episode_Reward without changing reward.
+
+  mjlab only writes ``Episode_Reward/*`` from reward terms. This term returns zero
+  so PPO's reward is unchanged, but it manually accumulates the cached raw component
+  into RewardManager's episode sums for TensorBoard.
+  """
+  cached = getattr(env, "_smp_reward_components", None)
+  if cached is None or component not in cached:
+    return torch.zeros(env.num_envs, device=env.device)
+
+  value = torch.nan_to_num(cached[component], nan=0.0, posinf=0.0, neginf=0.0)
+  reward_manager = getattr(env, "reward_manager", None)
+  episode_sums = getattr(reward_manager, "_episode_sums", None)
+  if episode_sums is not None and log_name in episode_sums:
+    scale = env.step_dt if env.cfg.scale_rewards_by_dt else 1.0
+    episode_sums[log_name] += value * scale
+  return torch.zeros_like(value)
+
+
 def task_smp_product(
   env: ManagerBasedRlEnv,
   task_terms: tuple[TaskTerm, ...],
@@ -120,4 +157,7 @@ def task_smp_product(
   a tuple of ``(func, weight, kwargs)``.  Calls ``smp_guidance_reward`` once (the
   sole SMP-buffer update), so it must be the task's only SMP reward term."""
   task = sum(w * func(env, **kw) for func, w, kw in task_terms)
-  return task * smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+  style = smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+  product = task * style
+  _cache_smp_reward_components(env, task, style, product)
+  return product
