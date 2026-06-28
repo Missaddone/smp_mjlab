@@ -24,6 +24,11 @@ build/
 .DS_Store
 Thumbs.db
 
+# Local notes
+notebook.md
+notes.md
+scratch.md
+
 # Experiment outputs and trackers
 logs/
 wandb/
