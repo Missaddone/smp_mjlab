@@ -7,12 +7,41 @@ build/
 .venv/
 .eggs/
 *.egg
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.cache/
+
+# Local editors and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Experiment outputs and trackers
 logs/
 wandb/
-.ruff_cache/
-.vscode/
+runs/
+outputs/
+checkpoints/
+events.out.tfevents.*
+model_*.pt
+*.onnx
+
+# Local data and model artifacts
+datasets/
 *.pt
 *.pth
 *.ckpt
-outputs/
-datasets/
+*.npy
+*.npz
+
+# Environment and local config
+.env
+.env.*
