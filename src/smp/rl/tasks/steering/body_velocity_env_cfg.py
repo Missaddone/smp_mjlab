@@ -90,6 +90,27 @@ def _body_velocity_reward(style_floor: float = 0.0) -> RewardTermCfg:
   )
 
 
+def _body_velocity_sum_reward(
+  task_weight: float = 1.0,
+  style_weight: float = 1.0,
+) -> RewardTermCfg:
+  return RewardTermCfg(
+    func=mdp.body_velocity_task_smp_sum,
+    weight=1.0,
+    params={
+      "command_name": "steering",
+      "lin_vel_err_scale": 2.0,
+      "yaw_rate_err_scale": 1.0,
+      "lin_vel_weight": 0.75,
+      "yaw_rate_weight": 0.25,
+      "task_weight": task_weight,
+      "style_weight": style_weight,
+      "fixed_timesteps": (8, 15, 22),
+      "ws": 6.0,
+    },
+  )
+
+
 def _add_smp_reward_component_logs(cfg: ManagerBasedRlEnvCfg) -> None:
   cfg.rewards["task_reward"] = RewardTermCfg(
     func=smp_reward_component_log,
@@ -108,6 +129,7 @@ def _body_velocity_base_cfg(
   ckpt_name: str,
   command_cfg: mdp.BodyVelocityCommandCfg,
   reward_cfg: RewardTermCfg | None = None,
+  reward_name: str = "task_smp_product",
 ) -> ManagerBasedRlEnvCfg:
   cfg = g1_steering_smp_env_cfg(play=play)
   command_cfg.debug_vis = play
@@ -115,7 +137,7 @@ def _body_velocity_base_cfg(
   _set_body_velocity_actor_obs(cfg)
   cfg.events["init_smp_state"].params["ckpt_path"] = f"{PRETRAIN_CKPT_DIR}/{ckpt_name}"
   cfg.rewards.clear()
-  cfg.rewards["task_smp_product"] = reward_cfg or _body_velocity_reward()
+  cfg.rewards[reward_name] = reward_cfg or _body_velocity_reward()
   _add_smp_reward_component_logs(cfg)
   return cfg
 
@@ -126,8 +148,19 @@ def g1_body_velocity_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # "pretrained_lafan_run.pt",
     # "lafan_run_clips_lafan_norm_3600.pt",
     # "lafan_walk_clips_lafan_norm_10800.pt",
-    "amp_loco_clips2_mirrored_lafan_norm_128.pt",
+    # "amp_lafan_walk_clips2_mirrored_lafan_norm_128.pt",
+    "amp_loco_clips2_mirrored_lafan_norm_12000.pt",
+    _body_velocity_command(-1.0, 2.0, -1.0, 1.0, -1.0, 1.0),
+  )
+
+
+def g1_body_velocity_sum_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  return _body_velocity_base_cfg(
+    play,
+    "amp_walk_clips2_mirrored_lafan_norm_128.pt",
     _body_velocity_command(-3.0, 5.0, -2.0, 2.0, -1.0, 1.0),
+    reward_cfg=_body_velocity_sum_reward(task_weight=1.0, style_weight=1.0),
+    reward_name="task_smp_sum",
   )
 
 
@@ -259,6 +292,7 @@ def g1_body_velocity_foot_regularized_smp_env_cfg(play: bool = False) -> Manager
 
 BODY_VELOCITY_TASKS: dict[str, Callable[[bool], ManagerBasedRlEnvCfg]] = {
   "BodyVelocity": g1_body_velocity_smp_env_cfg,
+  "BodyVelocity-Sum": g1_body_velocity_sum_smp_env_cfg,
   "BodyVelocity-Walk": g1_body_velocity_walk_smp_env_cfg,
   "BodyVelocity-Run": g1_body_velocity_run_smp_env_cfg,
   "BodyVelocity-FootRegularized": g1_body_velocity_foot_regularized_smp_env_cfg,

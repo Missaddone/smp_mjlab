@@ -65,16 +65,16 @@ python scripts/rsl_rl/export_onnx.py \
   --headless
 
 
-  CUDA_VISIBLE_DEVICES=0 uv run python scripts/pretrain.py \
-  --data-dir datasets/amp_walk_clips2_npz_mirrored \
+  CUDA_VISIBLE_DEVICES=5 uv run python scripts/pretrain.py \
+  --data-dir datasets/amp_lafan_walk_clips2_npz_mirrored \
   --norm-stats-file datasets/lafan_norm_stats.npz \
-  --name amp_walk_clips2_mirrored_256 \
+  --name amp_lafan_walk_clips2_mirrored_256 \
   --device cuda:0 \
-  --batch-size 512 \
+  --batch-size 1024 \
   --num-epochs 50000 \
   --num-timesteps 50 \
   --num-noise-samples 10 \
-  --d-model 256 \
+  --d-model 128 \
   --nhead 4 \
   --num-layers 2 \
   --lr 0.0002 \
@@ -95,7 +95,7 @@ CUDA_VISIBLE_DEVICES=6 uv run scripts/train.py Smp-Forward-G1 \
   --agent.max-iterations 5000 \
   --env.scene.num-envs 4096
 
-CUDA_VISIBLE_DEVICES=5  uv run scripts/train.py Smp-BodyVelocity-G1 \
+CUDA_VISIBLE_DEVICES=3  uv run scripts/train.py Smp-BodyVelocity-G1 \
   --agent.max-iterations 10000 \
   --env.scene.num-envs 4096
 
@@ -137,3 +137,8 @@ uv run python scripts/mirror_motion_data.py \
 CUDA_VISIBLE_DEVICES=1 uv run scripts/train.py Smp-BodyForwardBackward-G1 \
 --agent.max-iterations 10000 \
 --env.scene.num-envs=4096
+
+
+CUDA_VISIBLE_DEVICES=3 uv run scripts/train.py Smp-BodyVelocity-Sum-G1 \
+  --agent.max-iterations 10000 \
+  --env.scene.num-envs 4096

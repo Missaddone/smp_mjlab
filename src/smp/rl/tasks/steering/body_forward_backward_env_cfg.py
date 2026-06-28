@@ -126,7 +126,7 @@ def g1_body_forward_backward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEn
   _add_foot_sensors_and_critic_obs(cfg, play=play)
 
   cfg.events["init_smp_state"].params["ckpt_path"] = (
-    f"{PRETRAIN_CKPT_DIR}/amp_loco_clips2_mirrored_lafan_norm_128.pt"
+    f"{PRETRAIN_CKPT_DIR}/amp_loco_clips2_mirrored_lafan_norm_256.pt"
   )
 
   cfg.rewards.clear()
