@@ -27,6 +27,7 @@ def _runner(experiment_name: str, run_name: str | None = None, init_std: float |
   cfg.experiment_name = experiment_name
   cfg.run_name = run_name or experiment_name
   if init_std is not None:
+    assert cfg.actor.distribution_cfg is not None
     cfg.actor.distribution_cfg["init_std"] = init_std
   if entropy_coef is not None:
     cfg.algorithm.entropy_coef = entropy_coef
@@ -91,6 +92,7 @@ register_mjlab_task(
 
 _BODY_VELOCITY_RUNNER_NAMES = {
   "BodyVelocity": "smp_body_velocity_g1",
+  "BodyVelocity-UnitreeRef": "smp_body_velocity_unitree_ref_g1",
   "BodyVelocity-Sum": "smp_body_velocity_sum_g1",
   "BodyVelocity-Walk": "smp_body_velocity_walk_g1",
   "BodyVelocity-Run": "smp_body_velocity_run_g1",
@@ -111,8 +113,8 @@ for _suffix, _env_builder in BODY_VELOCITY_TASKS.items():
   )
   register_mjlab_task(
     task_id=f"Smp-{_suffix}-G1",
-    env_cfg=_env_builder(play=False),
-    play_env_cfg=_env_builder(play=True),
+    env_cfg=_env_builder(False),
+    play_env_cfg=_env_builder(True),
     rl_cfg=_rl,
   )
 

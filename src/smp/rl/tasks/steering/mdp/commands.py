@@ -16,6 +16,7 @@ import numpy as np
 import torch
 from mjlab.entity import Entity
 from mjlab.managers.command_manager import CommandTerm, CommandTermCfg
+from mjlab.utils.lab_api.math import wrap_to_pi
 
 if TYPE_CHECKING:
   import viser
@@ -254,8 +255,13 @@ class BodyVelocityCommand(CommandTerm):
     self.lin_vel_b = torch.zeros(self.num_envs, 2, device=self.device)
     self.yaw_rate = torch.zeros(self.num_envs, device=self.device)
     self.command_b = torch.zeros(self.num_envs, 3, device=self.device)
+    self.heading_target = torch.zeros(self.num_envs, device=self.device)
+    self.heading_error = torch.zeros(self.num_envs, device=self.device)
+    self.is_heading_env = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+    self.is_standing_env = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
     self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
     self.metrics["error_yaw_rate"] = torch.zeros(self.num_envs, device=self.device)
+    self.metrics["error_heading"] = torch.zeros(self.num_envs, device=self.device)
 
   @property
   def command(self) -> torch.Tensor:
@@ -285,6 +291,8 @@ class BodyVelocityCommand(CommandTerm):
       self.lin_vel_b - root_lin_vel_b[:, :2], dim=-1
     )
     self.metrics["error_yaw_rate"] = torch.abs(self.yaw_rate - self._root_yaw_rate())
+    if self.cfg.heading_command:
+      self.metrics["error_heading"] = torch.abs(self.heading_error)
 
   def _resample_command(self, env_ids: torch.Tensor) -> None:
     n = int(env_ids.numel())
@@ -303,10 +311,69 @@ class BodyVelocityCommand(CommandTerm):
     yaw_rate = torch.empty(n, device=self.device)
     yaw_rate.uniform_(self.cfg.yaw_rate_min, self.cfg.yaw_rate_max)
     self.yaw_rate[env_ids] = yaw_rate
+    command_norm = torch.linalg.norm(
+      torch.cat([self.lin_vel_b[env_ids], self.yaw_rate[env_ids].unsqueeze(-1)], dim=-1), dim=1
+    )
+    deadzone_mask = command_norm <= self.cfg.command_deadzone
+    self.lin_vel_b[env_ids[deadzone_mask]] = 0.0
+    self.yaw_rate[env_ids[deadzone_mask]] = 0.0
+    if self.cfg.heading_command:
+      self.heading_target[env_ids] = torch.empty(n, device=self.device).uniform_(
+        self.cfg.heading_min, self.cfg.heading_max
+      )
+      self.is_heading_env[env_ids] = (
+        torch.empty(n, device=self.device).uniform_(0.0, 1.0) <= self.cfg.rel_heading_envs
+      )
+    single_axis_mask = (
+      torch.empty(n, device=self.device).uniform_(0.0, 1.0) <= self.cfg.rel_single_axis_envs
+    )
+    if torch.any(single_axis_mask):
+      single_env_ids = env_ids[single_axis_mask]
+      command_values = torch.cat(
+        [self.lin_vel_b[env_ids], self.yaw_rate[env_ids].unsqueeze(-1)], dim=-1
+      )
+      single_axes = torch.randint(0, 3, (n,), device=self.device)[single_axis_mask]
+      single_values = command_values[single_axis_mask, single_axes]
+      min_abs = max(self.cfg.command_deadzone, self.cfg.single_axis_min_abs)
+      too_small = torch.abs(single_values) <= min_abs
+      if torch.any(too_small):
+        signs = torch.where(
+          torch.empty_like(single_values[too_small]).uniform_(0.0, 1.0) < 0.5,
+          -torch.ones_like(single_values[too_small]),
+          torch.ones_like(single_values[too_small]),
+        )
+        single_values[too_small] = signs * min_abs
+
+      self.lin_vel_b[single_env_ids] = 0.0
+      self.yaw_rate[single_env_ids] = 0.0
+      x_mask = single_axes == 0
+      y_mask = single_axes == 1
+      yaw_mask = single_axes == 2
+      self.lin_vel_b[single_env_ids[x_mask], 0] = single_values[x_mask]
+      self.lin_vel_b[single_env_ids[y_mask], 1] = single_values[y_mask]
+      self.yaw_rate[single_env_ids[yaw_mask]] = single_values[yaw_mask]
+      self.is_heading_env[single_env_ids] = False
+
+    self.is_standing_env[env_ids] = (
+      torch.empty(n, device=self.device).uniform_(0.0, 1.0) <= self.cfg.rel_standing_envs
+    )
+    self.lin_vel_b[env_ids[self.is_standing_env[env_ids]]] = 0.0
+    self.yaw_rate[env_ids[self.is_standing_env[env_ids]]] = 0.0
     self.command_b[env_ids, 0:2] = self.lin_vel_b[env_ids]
     self.command_b[env_ids, 2] = self.yaw_rate[env_ids]
 
   def _update_command(self) -> None:
+    if self.cfg.heading_command:
+      self.heading_error = wrap_to_pi(self.heading_target - self.robot.data.heading_w)
+      env_ids = (self.is_heading_env & ~self.is_standing_env).nonzero(as_tuple=False).flatten()
+      self.yaw_rate[env_ids] = torch.clip(
+        self.cfg.heading_control_stiffness * self.heading_error[env_ids],
+        min=self.cfg.yaw_rate_min,
+        max=self.cfg.yaw_rate_max,
+      )
+    standing_env_ids = self.is_standing_env.nonzero(as_tuple=False).flatten()
+    self.lin_vel_b[standing_env_ids] = 0.0
+    self.yaw_rate[standing_env_ids] = 0.0
     self.command_b[:, 0:2] = self.lin_vel_b
     self.command_b[:, 2] = self.yaw_rate
 
@@ -400,6 +467,15 @@ class BodyVelocityCommandCfg(CommandTermCfg):
   lin_vel_y_max: float = 1.0
   yaw_rate_min: float = -1.0
   yaw_rate_max: float = 1.0
+  heading_command: bool = False
+  rel_standing_envs: float = 0.0
+  rel_single_axis_envs: float = 0.0
+  command_deadzone: float = 0.0
+  single_axis_min_abs: float = 0.1
+  heading_control_stiffness: float = 0.5
+  rel_heading_envs: float = 1.0
+  heading_min: float = -math.pi
+  heading_max: float = math.pi
 
   @dataclass
   class VizCfg:
@@ -424,6 +500,33 @@ class BodyVelocityCommandCfg(CommandTermCfg):
       msg = (
         f"lin_vel_y_max ({self.lin_vel_y_max}) must be >= "
         f"lin_vel_y_min ({self.lin_vel_y_min})."
+      )
+      raise ValueError(msg)
+    if not 0.0 <= self.rel_standing_envs <= 1.0:
+      msg = f"rel_standing_envs must be in [0, 1], got {self.rel_standing_envs}."
+      raise ValueError(msg)
+    if not 0.0 <= self.rel_heading_envs <= 1.0:
+      msg = f"rel_heading_envs must be in [0, 1], got {self.rel_heading_envs}."
+      raise ValueError(msg)
+    if not 0.0 <= self.rel_single_axis_envs <= 1.0:
+      msg = f"rel_single_axis_envs must be in [0, 1], got {self.rel_single_axis_envs}."
+      raise ValueError(msg)
+    if self.command_deadzone < 0.0:
+      msg = f"command_deadzone must be >= 0, got {self.command_deadzone}."
+      raise ValueError(msg)
+    if self.single_axis_min_abs < 0.0:
+      msg = f"single_axis_min_abs must be >= 0, got {self.single_axis_min_abs}."
+      raise ValueError(msg)
+    if self.yaw_rate_max < self.yaw_rate_min:
+      msg = (
+        f"yaw_rate_max ({self.yaw_rate_max}) must be >= "
+        f"yaw_rate_min ({self.yaw_rate_min})."
+      )
+      raise ValueError(msg)
+    if self.heading_max < self.heading_min:
+      msg = (
+        f"heading_max ({self.heading_max}) must be >= "
+        f"heading_min ({self.heading_min})."
       )
       raise ValueError(msg)
 
