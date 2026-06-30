@@ -60,6 +60,7 @@ def _body_velocity_command(
   lin_vel_y_max: float,
   yaw_rate_min: float,
   yaw_rate_max: float,
+  static_prob: float = 0.0,
 ) -> mdp.BodyVelocityCommandCfg:
   return mdp.BodyVelocityCommandCfg(
     entity_name="robot",
@@ -70,6 +71,7 @@ def _body_velocity_command(
     lin_vel_y_max=lin_vel_y_max,
     yaw_rate_min=yaw_rate_min,
     yaw_rate_max=yaw_rate_max,
+    static_prob=static_prob,
   )
 
 
@@ -107,6 +109,46 @@ def _body_velocity_sum_reward(
       "style_weight": style_weight,
       "fixed_timesteps": (8, 15, 22),
       "ws": 6.0,
+    },
+  )
+
+
+def _body_velocity_exp2_reward() -> RewardTermCfg:
+  return RewardTermCfg(
+    func=mdp.body_velocity_exp2_task_smp_product,
+    weight=1.0,
+    params={
+      "command_name": "steering",
+      "lin_vel_err_scale": 2.0,
+      "yaw_rate_err_scale": 1.0,
+      "lin_yaw_product_weight": 0.7,
+      "lin_vel_weight": 0.15,
+      "yaw_rate_weight": 0.15,
+      "fixed_timesteps": (8, 15, 22),
+      "ws": 6.0,
+    },
+  )
+
+
+def _body_velocity_static_exp2_reward() -> RewardTermCfg:
+  return RewardTermCfg(
+    func=mdp.body_velocity_static_exp2_task_smp_product,
+    weight=1.0,
+    params={
+      "command_name": "steering",
+      "lin_vel_err_scale": 2.0,
+      "yaw_rate_err_scale": 1.0,
+      "static_root_lin_vel_err_scale": 1.5,
+      "static_root_yaw_rate_err_scale": 1.5,
+      "static_foot_vel_err_scale": 2.0,
+      "static_lin_vel_threshold": 0.05,
+      "static_yaw_rate_threshold": 0.05,
+      "lin_yaw_product_weight": 0.7,
+      "lin_vel_weight": 0.15,
+      "yaw_rate_weight": 0.15,
+      "fixed_timesteps": (8, 15, 22),
+      "ws": 6.0,
+      "foot_asset_cfg": SceneEntityCfg("robot", body_names=FOOT_BODY_NAMES),
     },
   )
 
@@ -151,6 +193,26 @@ def g1_body_velocity_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # "amp_lafan_walk_clips2_mirrored_lafan_norm_128.pt",
     "amp_loco_clips2_mirrored_lafan_norm_12000.pt",
     _body_velocity_command(-1.0, 2.0, -1.0, 1.0, -1.0, 1.0),
+  )
+
+
+def g1_body_velocity_exp2_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  return _body_velocity_base_cfg(
+    play,
+    "amp_loco_clips2_mirrored_lafan_norm_12000.pt",
+    _body_velocity_command(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, static_prob=0.2),
+    reward_cfg=_body_velocity_exp2_reward(),
+    reward_name="task_smp_product_exp2",
+  )
+
+
+def g1_body_velocity_static_exp2_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  return _body_velocity_base_cfg(
+    play,
+    "amp_loco_clips2_mirrored_lafan_norm_12000.pt",
+    _body_velocity_command(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, static_prob=0.2),
+    reward_cfg=_body_velocity_static_exp2_reward(),
+    reward_name="task_smp_product_static_exp2",
   )
 
 
@@ -292,6 +354,8 @@ def g1_body_velocity_foot_regularized_smp_env_cfg(play: bool = False) -> Manager
 
 BODY_VELOCITY_TASKS: dict[str, Callable[[bool], ManagerBasedRlEnvCfg]] = {
   "BodyVelocity": g1_body_velocity_smp_env_cfg,
+  "BodyVelocity-Exp2": g1_body_velocity_exp2_smp_env_cfg,
+  "BodyVelocity-StaticExp2": g1_body_velocity_static_exp2_smp_env_cfg,
   "BodyVelocity-Sum": g1_body_velocity_sum_smp_env_cfg,
   "BodyVelocity-Walk": g1_body_velocity_walk_smp_env_cfg,
   "BodyVelocity-Run": g1_body_velocity_run_smp_env_cfg,

@@ -253,6 +253,7 @@ class BodyVelocityCommand(CommandTerm):
     self.robot: Entity = env.scene[cfg.entity_name]
     self.lin_vel_b = torch.zeros(self.num_envs, 2, device=self.device)
     self.yaw_rate = torch.zeros(self.num_envs, device=self.device)
+    self.is_static = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
     self.command_b = torch.zeros(self.num_envs, 3, device=self.device)
     self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
     self.metrics["error_yaw_rate"] = torch.zeros(self.num_envs, device=self.device)
@@ -302,7 +303,15 @@ class BodyVelocityCommand(CommandTerm):
 
     yaw_rate = torch.empty(n, device=self.device)
     yaw_rate.uniform_(self.cfg.yaw_rate_min, self.cfg.yaw_rate_max)
+
+    static_mask = torch.zeros(n, dtype=torch.bool, device=self.device)
+    if self.cfg.static_prob > 0.0:
+      static_mask = torch.rand(n, device=self.device) < self.cfg.static_prob
+      lin_vel_b[static_mask] = 0.0
+      yaw_rate[static_mask] = 0.0
+
     self.yaw_rate[env_ids] = yaw_rate
+    self.is_static[env_ids] = static_mask
     self.command_b[env_ids, 0:2] = self.lin_vel_b[env_ids]
     self.command_b[env_ids, 2] = self.yaw_rate[env_ids]
 
@@ -400,6 +409,7 @@ class BodyVelocityCommandCfg(CommandTermCfg):
   lin_vel_y_max: float = 1.0
   yaw_rate_min: float = -1.0
   yaw_rate_max: float = 1.0
+  static_prob: float = 0.0
 
   @dataclass
   class VizCfg:
@@ -425,6 +435,9 @@ class BodyVelocityCommandCfg(CommandTermCfg):
         f"lin_vel_y_max ({self.lin_vel_y_max}) must be >= "
         f"lin_vel_y_min ({self.lin_vel_y_min})."
       )
+      raise ValueError(msg)
+    if not 0.0 <= self.static_prob <= 1.0:
+      msg = f"static_prob ({self.static_prob}) must be in [0, 1]."
       raise ValueError(msg)
 
   def build(self, env: "ManagerBasedRlEnv") -> BodyVelocityCommand:

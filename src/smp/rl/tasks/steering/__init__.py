@@ -91,6 +91,8 @@ register_mjlab_task(
 
 _BODY_VELOCITY_RUNNER_NAMES = {
   "BodyVelocity": "smp_body_velocity_g1",
+  "BodyVelocity-Exp2": "smp_body_velocity_exp2_g1",
+  "BodyVelocity-StaticExp2": "smp_body_velocity_static_exp2_g1",
   "BodyVelocity-Sum": "smp_body_velocity_sum_g1",
   "BodyVelocity-Walk": "smp_body_velocity_walk_g1",
   "BodyVelocity-Run": "smp_body_velocity_run_g1",

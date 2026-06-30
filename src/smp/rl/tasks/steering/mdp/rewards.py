@@ -279,6 +279,157 @@ def body_velocity_task_smp_product(
   return product
 
 
+def body_velocity_static_command_mask(
+  command_lin_vel_b: torch.Tensor,
+  command_yaw_rate: torch.Tensor,
+  lin_vel_threshold: float = 0.05,
+  yaw_rate_threshold: float = 0.05,
+) -> torch.Tensor:
+  return (
+    (torch.abs(command_lin_vel_b[:, 0]) < lin_vel_threshold)
+    & (torch.abs(command_lin_vel_b[:, 1]) < lin_vel_threshold)
+    & (torch.abs(command_yaw_rate) < yaw_rate_threshold)
+  )
+
+
+def body_velocity_linear_yaw_task_reward(
+  lin_vel_err: torch.Tensor,
+  yaw_rate_err: torch.Tensor,
+  lin_vel_err_scale: float = 2.0,
+  yaw_rate_err_scale: float = 1.0,
+  lin_yaw_product_weight: float = 0.7,
+  lin_vel_weight: float = 0.15,
+  yaw_rate_weight: float = 0.15,
+) -> torch.Tensor:
+  lin_vel_reward = torch.exp(-lin_vel_err_scale * lin_vel_err)
+  yaw_rate_reward = torch.exp(-yaw_rate_err_scale * yaw_rate_err)
+  return (
+    lin_yaw_product_weight * lin_vel_reward * yaw_rate_reward
+    + lin_vel_weight * lin_vel_reward
+    + yaw_rate_weight * yaw_rate_reward
+  )
+
+
+def body_velocity_static_task_reward(
+  root_lin_vel_err: torch.Tensor,
+  root_yaw_rate_err: torch.Tensor,
+  foot_vel_xy: torch.Tensor,
+  root_lin_vel_err_scale: float = 1.5,
+  root_yaw_rate_err_scale: float = 1.5,
+  foot_vel_err_scale: float = 2.0,
+  lin_yaw_product_weight: float = 0.7,
+  lin_vel_weight: float = 0.15,
+  yaw_rate_weight: float = 0.15,
+) -> torch.Tensor:
+  root_task = body_velocity_linear_yaw_task_reward(
+    root_lin_vel_err,
+    root_yaw_rate_err,
+    lin_vel_err_scale=root_lin_vel_err_scale,
+    yaw_rate_err_scale=root_yaw_rate_err_scale,
+    lin_yaw_product_weight=lin_yaw_product_weight,
+    lin_vel_weight=lin_vel_weight,
+    yaw_rate_weight=yaw_rate_weight,
+  )
+  foot_vel_err = torch.sum(foot_vel_xy**2, dim=-1)
+  foot_reward = torch.prod(torch.exp(-foot_vel_err_scale * foot_vel_err), dim=-1)
+  return root_task * foot_reward
+
+
+def body_velocity_exp2_task_smp_product(
+  env: "ManagerBasedRlEnv",
+  command_name: str = "steering",
+  lin_vel_err_scale: float = 2.0,
+  yaw_rate_err_scale: float = 1.0,
+  lin_yaw_product_weight: float = 0.7,
+  lin_vel_weight: float = 0.15,
+  yaw_rate_weight: float = 0.15,
+  fixed_timesteps: tuple[int, ...] = (8, 15, 22),
+  ws: float = 6.0,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  asset = env.scene[asset_cfg.name]
+  command = env.command_manager.get_term(command_name)
+  root_lin_vel_b = _root_lin_vel_b(asset.data)
+  lin_vel_err = torch.sum((root_lin_vel_b[:, :2] - command.lin_vel_b) ** 2, dim=-1)
+  yaw_rate_err = (command.yaw_rate - _root_yaw_rate(asset.data)) ** 2
+  task = body_velocity_linear_yaw_task_reward(
+    lin_vel_err,
+    yaw_rate_err,
+    lin_vel_err_scale=lin_vel_err_scale,
+    yaw_rate_err_scale=yaw_rate_err_scale,
+    lin_yaw_product_weight=lin_yaw_product_weight,
+    lin_vel_weight=lin_vel_weight,
+    yaw_rate_weight=yaw_rate_weight,
+  )
+  style = smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+  product = task * style
+  _cache_smp_reward_components(env, task, style, product)
+  return product
+
+
+def body_velocity_static_exp2_task_smp_product(
+  env: "ManagerBasedRlEnv",
+  command_name: str = "steering",
+  lin_vel_err_scale: float = 2.0,
+  yaw_rate_err_scale: float = 1.0,
+  static_root_lin_vel_err_scale: float = 1.5,
+  static_root_yaw_rate_err_scale: float = 1.5,
+  static_foot_vel_err_scale: float = 2.0,
+  static_lin_vel_threshold: float = 0.05,
+  static_yaw_rate_threshold: float = 0.05,
+  lin_yaw_product_weight: float = 0.7,
+  lin_vel_weight: float = 0.15,
+  yaw_rate_weight: float = 0.15,
+  fixed_timesteps: tuple[int, ...] = (8, 15, 22),
+  ws: float = 6.0,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+  foot_asset_cfg: SceneEntityCfg | None = None,
+) -> torch.Tensor:
+  asset = env.scene[asset_cfg.name]
+  command = env.command_manager.get_term(command_name)
+  root_lin_vel_b = _root_lin_vel_b(asset.data)
+  root_yaw_rate = _root_yaw_rate(asset.data)
+
+  lin_vel_err = torch.sum((root_lin_vel_b[:, :2] - command.lin_vel_b) ** 2, dim=-1)
+  yaw_rate_err = (command.yaw_rate - root_yaw_rate) ** 2
+  moving_task = body_velocity_linear_yaw_task_reward(
+    lin_vel_err,
+    yaw_rate_err,
+    lin_vel_err_scale=lin_vel_err_scale,
+    yaw_rate_err_scale=yaw_rate_err_scale,
+    lin_yaw_product_weight=lin_yaw_product_weight,
+    lin_vel_weight=lin_vel_weight,
+    yaw_rate_weight=yaw_rate_weight,
+  )
+
+  if foot_asset_cfg is None:
+    foot_asset_cfg = asset_cfg
+  foot_vel_xy = asset.data.body_link_lin_vel_w[:, foot_asset_cfg.body_ids, :2]
+  static_task = body_velocity_static_task_reward(
+    torch.sum(root_lin_vel_b[:, :2] ** 2, dim=-1),
+    root_yaw_rate**2,
+    foot_vel_xy,
+    root_lin_vel_err_scale=static_root_lin_vel_err_scale,
+    root_yaw_rate_err_scale=static_root_yaw_rate_err_scale,
+    foot_vel_err_scale=static_foot_vel_err_scale,
+    lin_yaw_product_weight=lin_yaw_product_weight,
+    lin_vel_weight=lin_vel_weight,
+    yaw_rate_weight=yaw_rate_weight,
+  )
+
+  static_mask = body_velocity_static_command_mask(
+    command.lin_vel_b,
+    command.yaw_rate,
+    lin_vel_threshold=static_lin_vel_threshold,
+    yaw_rate_threshold=static_yaw_rate_threshold,
+  )
+  task = torch.where(static_mask, static_task, moving_task)
+  style = smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+  product = task * style
+  _cache_smp_reward_components(env, task, style, product)
+  return product
+
+
 def body_velocity_task_smp_sum(
   env: "ManagerBasedRlEnv",
   command_name: str = "steering",
