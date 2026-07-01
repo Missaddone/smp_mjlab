@@ -96,6 +96,8 @@ _BODY_VELOCITY_RUNNER_NAMES = {
   "BodyVelocity": "smp_body_velocity_g1",
   "BodyVelocity-UnitreeRef": "smp_body_velocity_unitree_ref_g1",
   "BodyVelocity-Sum": "smp_body_velocity_sum_g1",
+  "BodyVelocity-UnitreeRef-Poly": "smp_body_velocity_unitree_ref_poly_g1",
+  "BodyVelocity-UnitreeRef-Poly-FootRegularized": "smp_body_velocity_unitree_ref_poly_foot_regularized_g1",
   "BodyVelocity-Poly": "smp_body_velocity_poly_g1",
   "BodyVelocity-Walk": "smp_body_velocity_walk_g1",
   "BodyVelocity-Run": "smp_body_velocity_run_g1",

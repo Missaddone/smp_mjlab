@@ -62,6 +62,23 @@ def base_upright_penalty(
   return torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=1)
 
 
+def zero_command_action_rate_l2(
+  env: "ManagerBasedRlEnv",
+  command_name: str = "steering",
+  command_threshold: float = 0.1,
+) -> torch.Tensor:
+  command = env.command_manager.get_command(command_name)
+  if command is None:
+    return torch.zeros(env.num_envs, device=env.device)
+  linear_norm = torch.linalg.norm(command[:, :2], dim=1)
+  angular_norm = torch.abs(command[:, 2])
+  zero_command = (linear_norm + angular_norm) <= command_threshold
+  action_rate = torch.sum(
+    torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1
+  )
+  return action_rate * zero_command.float()
+
+
 def root_height_below_target_penalty(
   env: "ManagerBasedRlEnv",
   target_height: float = 0.74,
