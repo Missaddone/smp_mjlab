@@ -5,9 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from mjlab.envs import ManagerBasedRlEnvCfg
+from mjlab.envs.mdp.terminations import bad_orientation
 from mjlab.managers.observation_manager import ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
+from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.sensor.contact_sensor import ContactMatch, ContactSensorCfg
 from mjlab.tasks.velocity import mdp as velocity_mdp
 
@@ -115,6 +117,49 @@ def _body_velocity_sum_reward(
   )
 
 
+def _body_velocity_poly_task_reward() -> RewardTermCfg:
+  return RewardTermCfg(
+    func=mdp.body_velocity_task_component,
+    weight=0.6,
+    params={
+      "command_name": "steering",
+      "lin_vel_err_scale": 2.0,
+      "yaw_rate_err_scale": 1.0,
+      "lin_vel_weight": 0.75,
+      "yaw_rate_weight": 0.25,
+      "fixed_timesteps": (8, 15, 22),
+      "ws": 6.0,
+    },
+  )
+
+
+def _cached_smp_component_reward(
+  component: str,
+  weight: float,
+) -> RewardTermCfg:
+  return RewardTermCfg(
+    func=mdp.smp_cached_component,
+    weight=weight,
+    params={"component": component},
+  )
+
+
+def _set_body_velocity_poly_rewards(
+  cfg: ManagerBasedRlEnvCfg,
+  task_weight: float = 0.6,
+  style_weight: float = 0.2,
+  product_weight: float = 0.3,
+) -> None:
+  cfg.rewards.clear()
+  cfg.rewards["task_reward"] = _body_velocity_poly_task_reward()
+  cfg.rewards["task_reward"].weight = task_weight
+  cfg.rewards["style_reward"] = _cached_smp_component_reward("style_reward", style_weight)
+  cfg.rewards["task_style_product"] = _cached_smp_component_reward(
+    "task_smp_product",
+    product_weight,
+  )
+
+
 def _add_smp_reward_component_logs(cfg: ManagerBasedRlEnvCfg) -> None:
   cfg.rewards["task_reward"] = RewardTermCfg(
     func=smp_reward_component_log,
@@ -140,8 +185,15 @@ def _body_velocity_base_cfg(
   cfg.commands["steering"] = command_cfg
   _set_body_velocity_actor_obs(cfg)
   cfg.events["init_smp_state"].params["ckpt_path"] = f"{PRETRAIN_CKPT_DIR}/{ckpt_name}"
+  cfg.terminations["bad_orientation"] = TerminationTermCfg(
+    func=bad_orientation,
+    params={
+      "limit_angle": 1.0,
+      "asset_cfg": SceneEntityCfg("robot"),
+    },
+  )
   cfg.rewards.clear()
-  cfg.rewards[reward_name] = reward_cfg or _body_velocity_reward()
+  cfg.rewards[reward_name] = reward_cfg or _body_velocity_reward(style_floor=0.0)
   _add_smp_reward_component_logs(cfg)
   return cfg
 
@@ -166,49 +218,49 @@ def g1_body_velocity_unitree_ref_smp_env_cfg(play: bool = False) -> ManagerBased
   command_cfg.rel_single_axis_envs = 0.1
   command_cfg.command_deadzone = 0.1
   command_cfg.single_axis_min_abs = 0.1
-  command_cfg.heading_control_stiffness = 0.5
+  command_cfg.heading_control_stiffness = 0.0
   command_cfg.rel_heading_envs = 0.5
   cfg = _body_velocity_base_cfg(
     play,
-    "amp_lafan_walk_clips2_mirrored_lafan_norm_128.pt",
+    "amp_walk_clips2_mirrored_lafan_norm_128.pt",
     command_cfg,
     reward_cfg=_body_velocity_reward(lin_vel_err_scale=2.0, yaw_rate_err_scale=1.0),
     reward_name="task_smp_product_unitree_ref",
   )
-  # Keep these disabled while isolating the effects of termination and command sampling changes.
-  # _add_sensor(
-  #   cfg,
-  #   ContactSensorCfg(
-  #     name="feet_ground_contact",
-  #     primary=ContactMatch(
-  #       mode="subtree",
-  #       pattern=r"^(left_ankle_roll_link|right_ankle_roll_link)$",
-  #       entity="robot",
-  #     ),
-  #     secondary=ContactMatch(mode="body", pattern="terrain"),
-  #     fields=("found", "force"),
-  #     reduce="netforce",
-  #     num_slots=1,
-  #     track_air_time=True,
-  #   ),
-  # )
-  # cfg.observations["critic"].terms["foot_contact"] = ObservationTermCfg(
-  #   func=velocity_mdp.foot_contact,
-  #   params={"sensor_name": "feet_ground_contact"},
-  # )
-  # cfg.observations["critic"].terms["foot_contact_forces"] = ObservationTermCfg(
-  #   func=velocity_mdp.foot_contact_forces,
-  #   params={"sensor_name": "feet_ground_contact"},
-  # )
-  # cfg.rewards["soft_landing"] = RewardTermCfg(
-  #   func=velocity_mdp.soft_landing,
-  #   weight=-1.0e-5,
-  #   params={
-  #     "sensor_name": "feet_ground_contact",
-  #     "command_name": "steering",
-  #     "command_threshold": 0.1,
-  #   },
-  # )
+  _add_sensor(
+    cfg,
+    ContactSensorCfg(
+      name="feet_ground_contact",
+      primary=ContactMatch(
+        mode="subtree",
+        pattern=r"^(left_ankle_roll_link|right_ankle_roll_link)$",
+        entity="robot",
+      ),
+      secondary=ContactMatch(mode="body", pattern="terrain"),
+      fields=("found", "force"),
+      reduce="netforce",
+      num_slots=1,
+      track_air_time=True,
+    ),
+  )
+  cfg.observations["critic"].terms["foot_contact"] = ObservationTermCfg(
+    func=velocity_mdp.foot_contact,
+    params={"sensor_name": "feet_ground_contact"},
+  )
+  cfg.observations["critic"].terms["foot_contact_forces"] = ObservationTermCfg(
+    func=velocity_mdp.foot_contact_forces,
+    params={"sensor_name": "feet_ground_contact"},
+  )
+  cfg.rewards["soft_landing"] = RewardTermCfg(
+    func=velocity_mdp.soft_landing,
+    weight=-1.0e-5,
+    params={
+      "sensor_name": "feet_ground_contact",
+      "command_name": "steering",
+      "command_threshold": 0.1,
+    },
+  )
+  cfg.rewards["action_rate"] = RewardTermCfg(func=mdp.action_rate_l2, weight=-0.000)
   return cfg
 
 
@@ -217,9 +269,24 @@ def g1_body_velocity_sum_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg
     play,
     "amp_walk_clips2_mirrored_lafan_norm_128.pt",
     _body_velocity_command(-1.0, 2.0, -1.0, 1.0, -1.0, 1.0),
-    reward_cfg=_body_velocity_sum_reward(task_weight=1.0, style_weight=1.0),
+    reward_cfg=_body_velocity_sum_reward(task_weight=1.0, style_weight=5.0),
     reward_name="task_smp_sum",
   )
+
+
+def g1_body_velocity_poly_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+  cfg = _body_velocity_base_cfg(
+    play,
+    "amp_walk_clips2_mirrored_lafan_norm_128.pt",
+    _body_velocity_command(-1.0, 2.0, -1.0, 1.0, -1.0, 1.0),
+  )
+  _set_body_velocity_poly_rewards(
+    cfg,
+    task_weight=0.6,
+    style_weight=0.1,
+    product_weight=0.3,
+  )
+  return cfg
 
 
 def g1_body_velocity_run_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -352,6 +419,7 @@ BODY_VELOCITY_TASKS: dict[str, Callable[[bool], ManagerBasedRlEnvCfg]] = {
   "BodyVelocity": g1_body_velocity_smp_env_cfg,
   "BodyVelocity-UnitreeRef": g1_body_velocity_unitree_ref_smp_env_cfg,
   "BodyVelocity-Sum": g1_body_velocity_sum_smp_env_cfg,
+  "BodyVelocity-Poly": g1_body_velocity_poly_smp_env_cfg,
   "BodyVelocity-Walk": g1_body_velocity_walk_smp_env_cfg,
   "BodyVelocity-Run": g1_body_velocity_run_smp_env_cfg,
   "BodyVelocity-FootRegularized": g1_body_velocity_foot_regularized_smp_env_cfg,

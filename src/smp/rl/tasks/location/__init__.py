@@ -8,6 +8,8 @@ from smp.rl.tasks.location.location_env_cfg import g1_location_smp_env_cfg
 _location_rl = unitree_g1_smp_ppo_runner_cfg()
 _location_rl.experiment_name = "smp_location_g1"
 _location_rl.run_name = "smp_location_g1"
+_location_rl.logger = "wandb"
+_location_rl.wandb_project = "smp_location_g1"
 
 register_mjlab_task(
   task_id="Smp-Location-G1",

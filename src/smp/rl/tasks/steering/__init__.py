@@ -26,6 +26,8 @@ def _runner(experiment_name: str, run_name: str | None = None, init_std: float |
   cfg = unitree_g1_smp_ppo_runner_cfg()
   cfg.experiment_name = experiment_name
   cfg.run_name = run_name or experiment_name
+  cfg.logger = "wandb"
+  cfg.wandb_project = experiment_name
   if init_std is not None:
     assert cfg.actor.distribution_cfg is not None
     cfg.actor.distribution_cfg["init_std"] = init_std
@@ -94,6 +96,7 @@ _BODY_VELOCITY_RUNNER_NAMES = {
   "BodyVelocity": "smp_body_velocity_g1",
   "BodyVelocity-UnitreeRef": "smp_body_velocity_unitree_ref_g1",
   "BodyVelocity-Sum": "smp_body_velocity_sum_g1",
+  "BodyVelocity-Poly": "smp_body_velocity_poly_g1",
   "BodyVelocity-Walk": "smp_body_velocity_walk_g1",
   "BodyVelocity-Run": "smp_body_velocity_run_g1",
   "BodyVelocity-FootRegularized": "smp_body_velocity_foot_regularized_g1",

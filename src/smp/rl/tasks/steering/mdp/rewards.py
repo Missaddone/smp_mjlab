@@ -310,6 +310,44 @@ def body_velocity_task_smp_sum(
   return total
 
 
+def body_velocity_task_component(
+  env: "ManagerBasedRlEnv",
+  command_name: str = "steering",
+  lin_vel_err_scale: float = 2.0,
+  yaw_rate_err_scale: float = 1.0,
+  lin_vel_weight: float = 0.75,
+  yaw_rate_weight: float = 0.25,
+  zero_lin_vel_target: bool = False,
+  fixed_timesteps: tuple[int, ...] = (8, 15, 22),
+  ws: float = 6.0,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  asset = env.scene[asset_cfg.name]
+  command = env.command_manager.get_term(command_name)
+  root_lin_vel_b = _root_lin_vel_b(asset.data)
+  target_lin_vel_b = torch.zeros_like(command.lin_vel_b) if zero_lin_vel_target else command.lin_vel_b
+  lin_vel_err = torch.sum((root_lin_vel_b[:, :2] - target_lin_vel_b) ** 2, dim=-1)
+  lin_vel_reward = torch.exp(-lin_vel_err_scale * lin_vel_err)
+  yaw_rate_err = (command.yaw_rate - _root_yaw_rate(asset.data)) ** 2
+  yaw_rate_reward = torch.exp(-yaw_rate_err_scale * yaw_rate_err)
+
+  task = lin_vel_weight * lin_vel_reward + yaw_rate_weight * yaw_rate_reward
+  style = smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+  product = task * style
+  _cache_smp_reward_components(env, task, style, product)
+  return task
+
+
+def smp_cached_component(
+  env: "ManagerBasedRlEnv",
+  component: str,
+) -> torch.Tensor:
+  cached = getattr(env, "_smp_reward_components", None)
+  if cached is None or component not in cached:
+    return torch.zeros(env.num_envs, device=env.device)
+  return cached[component]
+
+
 def filtered_contact_force_penalty(
   env: "ManagerBasedRlEnv",
   sensor_cfg: SceneEntityCfg,

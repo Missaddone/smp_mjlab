@@ -8,6 +8,8 @@ from smp.rl.tasks.getup.getup_env_cfg import g1_getup_smp_env_cfg
 _getup_rl = unitree_g1_smp_ppo_runner_cfg()
 _getup_rl.experiment_name = "smp_getup_g1"
 _getup_rl.run_name = "smp_getup_g1"
+_getup_rl.logger = "wandb"
+_getup_rl.wandb_project = "smp_getup_g1"
 
 register_mjlab_task(
   task_id="Smp-Getup-G1",
