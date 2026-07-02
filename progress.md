@@ -28,9 +28,15 @@
 ## Dialogue Refresh Counter
 - Last planning refresh: 2026-07-02 03:41:53 UTC.
 - Count user messages after this refresh and update these files again after 6.
-- Counter since last refresh: 0.
+- Counter since last refresh: 4.
 
 ## Next Likely Action
-- User will choose between play implementation options. If they choose exact
-  run-based playback, implement `scripts/play_from_run.py` and then generate
-  exact play commands for experiment 1 groups.
+- Experiment 3 is temporarily prioritized before experiment 2 starts.
+- Created `scripts/setup_exp3_prior_worktrees.sh` to generate four master-based
+  worktrees for prior comparison on `Smp-Forward-G1` and `Smp-Steering-G1`.
+- Corrected experiment 3 forward baseline prior to `pretrained_loco.pt`.
+- The script assigns four launched jobs to four GPUs via `GPU_IDS="0 1 2 3"`,
+  sets `--agent.max-iterations 10000` in the train command, and changes only the
+  prior checkpoint through CLI override.
+- The script has been checked with `bash -n` and help output verified, but it
+  has not created worktrees or launched training yet.
