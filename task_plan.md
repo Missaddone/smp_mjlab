@@ -1,44 +1,112 @@
 # Task Plan
 
 ## Goal
-Design and then implement experiment 2 for the clean baseline:
-`Smp-BodyVelocity-G1` with prior `datasets/pretrain_ckpt/amp_loco_clips2_mirrored_lafan_norm_12000.pt`.
+Maintain durable context for `smp_mjlab` experiment design, command/play
+consistency, and Notion records so future turns can continue without relying on
+chat memory.
 
-Do not touch other task combinations unless the user explicitly changes this constraint.
-
-## Current Constraints
-- Base config: `4096` envs, `10000` iterations, single GPU.
-- Command range: body-frame `x=-1..1`, `y=-1..1`, `yaw=-1..1`.
-- Experiment 2 compares two reward variants:
-  - Reward A: original task reward based on linear velocity error and yaw-rate error.
-  - Reward B: original reward when command is non-static; when command requires static behavior, use a static-specific reward based on foot and root velocity error.
-- User wants exact code-matching reward formulas before any code edits.
-- After code changes are complete, provide train commands.
+## Operating Rules
+- Every user message must be appended to the Notion page
+  `smp_mjlab Codex 用户消息记录` (`38f79c70-e2a7-81d2-b84d-f9e18cace163`).
+- For project structure / code logic / relationship questions that do not
+  require edits, use a subagent with model `gpt-5.4` and reasoning `medium`.
+- Refresh these planning files with `planning-with-files` every 6 user messages
+  after the last refresh, and also whenever the user explicitly asks.
+- When a major experiment design or code change is complete, record the
+  experiment parameters in Notion database `流程记录`.
+- If the user starts a new major experiment and the previous experiment row has
+  blank `效果`, remind the user to fill in the result/effect note.
+- Do not modify unrelated task combinations. The user has repeatedly asked for
+  scoped changes only.
 
 ## Notion Flow Record Rules
-- Use Notion database: `流程记录`, data source `collection://f2d5dc66-d42f-45cc-af2e-513bd60aa725`.
-- `git的commit编号`: record the latest commit before the current experiment code changes, i.e. the previous run's commit.
-- `代码改动`: concise summary of files changed and what changed.
-- `需要达成的目的`: summarize the current experiment goal only.
-- `效果`: user fills after running; if the user starts the next experiment and the previous effect is empty, remind them to fill it.
-- `num-envs`: parallel env count.
-- `task-name`: task name, normally e.g. `steering`, `forward`, or here `BodyVelocity`.
-- `command设计`: command setup.
-- `reward设计`: simplified formula with concrete parameter values.
-- `速度区间`: command min/max velocity ranges and any special target-speed/static probability.
-- `prior来源`: prior checkpoint path/source.
+- Database: `流程记录`, data source
+  `collection://f2d5dc66-d42f-45cc-af2e-513bd60aa725`.
+- Columns to fill: `编号`, `git的commit编号`, `代码改动`, `效果`,
+  `需要达成的目的`, `max-iteration`, `num-envs`, `task-name`,
+  `command设计`, `reward设计`, `速度区间`, `prior来源`.
+- `git的commit编号`: use the latest commit before the current experiment code
+  changes, i.e. the previous run's commit.
+- `代码改动`: concise summary of what files/logic changed.
+- `效果`: leave blank for user-run experiments; remind later if still blank.
 
-## Phases
-- [complete] Phase 1: Confirm exact current reward and command formulas from code via subagent.
-- [complete] Phase 2: Present Reward A and proposed Reward B formulas to user for confirmation.
-- [complete] Phase 3: After confirmation, implement scoped code changes only for `Smp-BodyVelocity-G1` experiment variants.
-- [complete] Phase 4: Verify CLI/help or tests and generate two training commands.
-- [complete] Phase 5: Write Notion flow record with previous commit, parameters, code changes, and blank effect.
+## Stable Experiment Context
+- Experiment 1 common config:
+  - Task: `Smp-BodyVelocity-G1`.
+  - Prior: project original loco prior
+    `datasets/pretrain_ckpt/pretrained_loco.pt`.
+  - Reward: original `body_velocity_task_smp_product`, i.e. linear velocity and
+    yaw-rate tracking error reward.
+  - Base config: `4096` envs, `10000` iterations, single GPU, W&B logger.
+- Experiment 1 groups:
+  - Group 1 `range_1_1_1`: x `[-1,1]`, y `[-1,1]`, yaw `[-1,1]`.
+  - Group 2 `range_4_4_2`: x `[-4,4]`, y `[-4,4]`, yaw `[-2,2]`.
+  - Group 3 `range_xneg4_4_y0_yaw0`: x `[-4,4]`, y `[0,0]`, yaw `[0,0]`.
+  - Group 4 `range_x0_4_y0_yaw0`: x `[0,4]`, y `[0,0]`, yaw `[0,0]`.
+- Experiment 2 clean baseline:
+  - Task family built from `Smp-BodyVelocity-G1`.
+  - Clean prior checkpoint:
+    `datasets/pretrain_ckpt/amp_loco_clips2_mirrored_lafan_norm_12000.pt`.
+  - Added tasks: `Smp-BodyVelocity-Exp2-G1` and
+    `Smp-BodyVelocity-StaticExp2-G1`.
+  - Static command probability default: `0.2`.
+  - Static command threshold defaults: `abs(cmd_x)<0.05`,
+    `abs(cmd_y)<0.05`, `abs(cmd_yaw)<0.05 rad/s`.
 
-## Decisions
-- 2026-06-30: User confirmed clean baseline is `Smp-BodyVelocity-G1` + `amp_loco_clips2_mirrored_lafan_norm_12000.pt`; ignore other task combinations.
-- 2026-06-30: No code edits before user confirms exact Reward A and Reward B formulas.
-- 2026-06-30: Experiment 2 uses two new tasks based only on the clean baseline:
-  - `Smp-BodyVelocity-Exp2-G1`
-  - `Smp-BodyVelocity-StaticExp2-G1`
-- 2026-06-30: Experiment 2 static command probability defaults to `0.2`; static reward threshold defaults are `abs(cmd_x)<0.05`, `abs(cmd_y)<0.05`, `abs(cmd_yaw)<0.05 rad/s`.
+## Current Open Decision
+The current user decision is how to make `play` use the same command range as
+training:
+- Existing `scripts/play.py` cannot accept `--env.commands...` overrides.
+- Recommended option: add a dedicated `scripts/play_from_run.py` that reads a
+  run's `params/env.yaml` and restores only `commands.steering.*` into the play
+  environment.
+- Alternative option: extend `scripts/play.py` with explicit command override
+  flags, but this is more manual and easier to mistype.
+
+## Reusable Train Template
+Use Experiment 1 group 3 as the command-override pattern, changing only
+run-name and command ranges:
+
+```bash
+cd /home/tyj/test/formal/smp_mjlab
+
+MUJOCO_GL=egl \
+./.venv/bin/python scripts/train.py Smp-BodyVelocity-G1 \
+  --env.scene.num-envs 4096 \
+  --agent.max-iterations 10000 \
+  --agent.experiment-name smp_exp1_body_velocity_loco \
+  --agent.run-name range_xneg4_4_y0_yaw0 \
+  --agent.logger wandb \
+  --agent.wandb-project smp \
+  --gpu-ids 0 \
+  --env.events.init-smp-state.params.ckpt-path datasets/pretrain_ckpt/pretrained_loco.pt \
+  --env.commands.steering.lin-vel-x-min -4.0 \
+  --env.commands.steering.lin-vel-x-max 4.0 \
+  --env.commands.steering.lin-vel-y-min 0.0 \
+  --env.commands.steering.lin-vel-y-max 0.0 \
+  --env.commands.steering.yaw-rate-min 0.0 \
+  --env.commands.steering.yaw-rate-max 0.0
+```
+
+## Reusable Play Template
+Use EGL and pass `--video True`. Current built-in play does not restore training
+command ranges; use this only when current registered env config is acceptable,
+or replace with the future exact-run wrapper.
+
+```bash
+cd /home/tyj/test/formal/smp_mjlab
+mkdir -p /tmp/mplconfig_smp_play
+
+MUJOCO_GL=egl \
+PYOPENGL_PLATFORM=egl \
+MUJOCO_EGL_DEVICE_ID=0 \
+MPLCONFIGDIR=/tmp/mplconfig_smp_play \
+./.venv/bin/python scripts/play.py Smp-BodyVelocity-G1 \
+  --checkpoint-file logs/rsl_rl/smp_exp1_body_velocity_loco/2026-06-30_12-39-16_range_xneg4_4_y0_yaw0/model_9999.pt \
+  --viewer viser \
+  --num-envs 1 \
+  --video True \
+  --video-length 1500 \
+  --video-width 1280 \
+  --video-height 720
+```
