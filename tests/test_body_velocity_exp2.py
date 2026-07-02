@@ -60,13 +60,11 @@ class BodyVelocityExp2Test(unittest.TestCase):
       root_lin_err,
       root_yaw_err,
       foot_vel_xy,
-      root_lin_vel_err_scale=1.5,
-      root_yaw_rate_err_scale=1.5,
       foot_vel_err_scale=2.0,
     )
 
-    r_l = math.exp(-1.5 * 0.01)
-    r_y = math.exp(-1.5 * 0.04)
+    r_l = math.exp(-2.0 * 0.01)
+    r_y = math.exp(-1.0 * 0.04)
     r_foot_l = math.exp(-2.0 * 0.01)
     r_foot_r = math.exp(-2.0 * 0.04)
     expected = (0.7 * r_l * r_y + 0.15 * r_l + 0.15 * r_y) * r_foot_l * r_foot_r

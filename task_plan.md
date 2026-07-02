@@ -54,14 +54,20 @@ chat memory.
     `abs(cmd_y)<0.05`, `abs(cmd_yaw)<0.05 rad/s`.
 
 ## Current Open Decision
-The current user decision is how to make `play` use the same command range as
-training:
-- Existing `scripts/play.py` cannot accept `--env.commands...` overrides.
-- Recommended option: add a dedicated `scripts/play_from_run.py` that reads a
-  run's `params/env.yaml` and restores only `commands.steering.*` into the play
-  environment.
-- Alternative option: extend `scripts/play.py` with explicit command override
-  flags, but this is more manual and easier to mistype.
+Experiment 3 is temporarily prioritized before experiment 2 training starts.
+Ignore prior isolated-workspace/script-launch approaches. Provide direct
+README-style `uv run scripts/train.py` commands only.
+
+Experiment 3 compares only prior checkpoints:
+- `Smp-Forward-G1` baseline: `pretrained_loco.pt`.
+- `Smp-Forward-G1` custom:
+  `amp_loco_clips2_mirrored_lafan_norm_12000.pt`.
+- `Smp-Steering-G1` baseline: `pretrained_lafan_run.pt`.
+- `Smp-Steering-G1` custom:
+  `amp_loco_clips2_mirrored_lafan_norm_12000.pt`.
+- Each run uses one GPU, default assignment `0 1 2 3`.
+- The train command must pass `--agent.max-iterations 10000`; do not edit task
+  code for this experiment.
 
 ## Reusable Train Template
 Use Experiment 1 group 3 as the command-override pattern, changing only

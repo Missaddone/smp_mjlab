@@ -76,6 +76,10 @@
   - `Smp-BodyVelocity-StaticExp2-G1`
 - Added explicit static command probability via `static_prob`.
 - Added static-specific reward branch for the static reward task.
+- Static branch root velocity reward was aligned with moving branch scales:
+  `r_l = exp(-2.0 * ||v_xy||^2)` and
+  `r_y = exp(-1.0 * v_yaw^2)`. The static-only difference is the additional
+  foot velocity product penalty.
 
 ## Play Consistency Finding
 - `scripts/play.py` is a thin wrapper around `mjlab.scripts.play.main()`.
@@ -102,3 +106,14 @@
   - `MUJOCO_EGL_DEVICE_ID=0`
   - `MPLCONFIGDIR=/tmp/mplconfig_smp_play`
 - `--video` must be followed by `True`: `--video True`.
+
+## Experiment 3 Direct Command Facts
+- User corrected experiment 3 forward baseline prior: it must be
+  `pretrained_loco.pt`, not `amp_run_clips2_mirrored_lafan_norm_128.pt`.
+- User abandoned all prior isolated-workspace/script-launch approaches for
+  experiment 3.
+- Use direct README-style `uv run scripts/train.py` commands.
+- Change only the prior checkpoint between baseline/custom runs for the same
+  task. Logging/run-name/GPU assignment are allowed command metadata.
+- Use `--agent.max-iterations 10000`, `--env.scene.num-envs 4096`, W&B logger,
+  and one GPU per run by default.

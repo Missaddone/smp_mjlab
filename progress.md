@@ -28,15 +28,22 @@
 ## Dialogue Refresh Counter
 - Last planning refresh: 2026-07-02 03:41:53 UTC.
 - Count user messages after this refresh and update these files again after 6.
-- Counter since last refresh: 4.
+- Counter since last refresh: 5.
 
 ## Next Likely Action
 - Experiment 3 is temporarily prioritized before experiment 2 starts.
-- Created `scripts/setup_exp3_prior_worktrees.sh` to generate four master-based
-  worktrees for prior comparison on `Smp-Forward-G1` and `Smp-Steering-G1`.
-- Corrected experiment 3 forward baseline prior to `pretrained_loco.pt`.
-- The script assigns four launched jobs to four GPUs via `GPU_IDS="0 1 2 3"`,
-  sets `--agent.max-iterations 10000` in the train command, and changes only the
-  prior checkpoint through CLI override.
-- The script has been checked with `bash -n` and help output verified, but it
-  has not created worktrees or launched training yet.
+- User abandoned the prior isolated-workspace approach and asked to clear that
+  memory.
+- Provide four direct README-style `uv run scripts/train.py` commands.
+- Experiment 3 compares only prior checkpoints for `Smp-Forward-G1` and
+  `Smp-Steering-G1`.
+- Use the already-validated shell pattern `CUDA_VISIBLE_DEVICES=N uv run
+  scripts/train.py ...` instead of `--gpu-ids`.
+- Use `--agent.max-iterations=10000`, `--env.scene.num-envs=4096`,
+  `--agent.logger=wandb`, one GPU per run, and prior checkpoint CLI overrides.
+
+## Latest Code Change
+- Updated experiment 2 static reward root velocity scales from `1.5/1.5` to
+  `2.0/1.0` in `body_velocity_env_cfg.py` and `rewards.py`.
+- Updated `tests/test_body_velocity_exp2.py` so the static reward default
+  formula expects the unified `2.0/1.0` root scales.
