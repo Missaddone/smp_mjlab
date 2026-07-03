@@ -80,6 +80,13 @@
   `r_l = exp(-2.0 * ||v_xy||^2)` and
   `r_y = exp(-1.0 * v_yaw^2)`. The static-only difference is the additional
   foot velocity product penalty.
+- If the current checkout is `master` and must keep running jobs alive, run
+  `tyj-test` from a separate `git worktree` directory. Do not switch the active
+  checkout used by running jobs.
+- Avoid sharing an editable project virtualenv blindly across checkouts because
+  imports may resolve to the old checkout. Robust path: run `uv sync --frozen`
+  once inside the worktree, then use `uv run` there. Fast path: use the existing
+  venv interpreter with `PYTHONPATH=$PWD/src` from the worktree.
 
 ## Play Consistency Finding
 - `scripts/play.py` is a thin wrapper around `mjlab.scripts.play.main()`.

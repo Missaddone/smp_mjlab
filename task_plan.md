@@ -54,44 +54,35 @@ chat memory.
     `abs(cmd_y)<0.05`, `abs(cmd_yaw)<0.05 rad/s`.
 
 ## Current Open Decision
-Experiment 3 is temporarily prioritized before experiment 2 training starts.
-Ignore prior isolated-workspace/script-launch approaches. Provide direct
-README-style `uv run scripts/train.py` commands only.
+Experiment 2 is back on the main path. The user may keep jobs running from the
+current `master` checkout and run the updated `tyj-test` branch from a separate
+directory. Use `git worktree` for this case so the current checkout is not
+switched.
 
-Experiment 3 compares only prior checkpoints:
-- `Smp-Forward-G1` baseline: `pretrained_loco.pt`.
-- `Smp-Forward-G1` custom:
-  `amp_loco_clips2_mirrored_lafan_norm_12000.pt`.
-- `Smp-Steering-G1` baseline: `pretrained_lafan_run.pt`.
-- `Smp-Steering-G1` custom:
-  `amp_loco_clips2_mirrored_lafan_norm_12000.pt`.
-- Each run uses one GPU, default assignment `0 1 2 3`.
-- The train command must pass `--agent.max-iterations 10000`; do not edit task
-  code for this experiment.
+Experiment 2 run tasks:
+- `Smp-BodyVelocity-Exp2-G1`: unified linear/yaw reward, including static
+  commands.
+- `Smp-BodyVelocity-StaticExp2-G1`: same moving reward; static commands use
+  unified root linear/yaw scales plus the extra foot velocity product penalty.
+- Both use prior `datasets/pretrain_ckpt/amp_loco_clips2_mirrored_lafan_norm_12000.pt`,
+  command `x/y/yaw in [-1, 1]`, `static_prob=0.2`, `4096` envs, `10000`
+  iterations, W&B logger, one GPU each.
 
 ## Reusable Train Template
-Use Experiment 1 group 3 as the command-override pattern, changing only
-run-name and command ranges:
+Use the verified `CUDA_VISIBLE_DEVICES=N uv run scripts/train.py ...` pattern.
+Experiment-specific task defaults should be left in the task config unless the
+user explicitly asks for command/reward overrides:
 
 ```bash
 cd /home/tyj/test/formal/smp_mjlab
 
-MUJOCO_GL=egl \
-./.venv/bin/python scripts/train.py Smp-BodyVelocity-G1 \
-  --env.scene.num-envs 4096 \
-  --agent.max-iterations 10000 \
-  --agent.experiment-name smp_exp1_body_velocity_loco \
-  --agent.run-name range_xneg4_4_y0_yaw0 \
-  --agent.logger wandb \
-  --agent.wandb-project smp \
-  --gpu-ids 0 \
-  --env.events.init-smp-state.params.ckpt-path datasets/pretrain_ckpt/pretrained_loco.pt \
-  --env.commands.steering.lin-vel-x-min -4.0 \
-  --env.commands.steering.lin-vel-x-max 4.0 \
-  --env.commands.steering.lin-vel-y-min 0.0 \
-  --env.commands.steering.lin-vel-y-max 0.0 \
-  --env.commands.steering.yaw-rate-min 0.0 \
-  --env.commands.steering.yaw-rate-max 0.0
+CUDA_VISIBLE_DEVICES=0 uv run scripts/train.py <TASK> \
+  --agent.max-iterations=10000 \
+  --env.scene.num-envs=4096 \
+  --agent.logger=wandb \
+  --agent.wandb-project=smp \
+  --agent.experiment-name=<EXPERIMENT_NAME> \
+  --agent.run-name=<RUN_NAME>
 ```
 
 ## Reusable Play Template

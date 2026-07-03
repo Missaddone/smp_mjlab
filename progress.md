@@ -26,24 +26,27 @@
 - Refreshed planning files at user request and reset the 6-message counter.
 
 ## Dialogue Refresh Counter
-- Last planning refresh: 2026-07-02 03:41:53 UTC.
+- Last planning refresh: 2026-07-02 09:40:28 UTC.
 - Count user messages after this refresh and update these files again after 6.
-- Counter since last refresh: 5.
+- Counter since last refresh: 3.
 
 ## Next Likely Action
-- Experiment 3 is temporarily prioritized before experiment 2 starts.
-- User abandoned the prior isolated-workspace approach and asked to clear that
-  memory.
-- Provide four direct README-style `uv run scripts/train.py` commands.
-- Experiment 3 compares only prior checkpoints for `Smp-Forward-G1` and
-  `Smp-Steering-G1`.
-- Use the already-validated shell pattern `CUDA_VISIBLE_DEVICES=N uv run
-  scripts/train.py ...` instead of `--gpu-ids`.
-- Use `--agent.max-iterations=10000`, `--env.scene.num-envs=4096`,
-  `--agent.logger=wandb`, one GPU per run, and prior checkpoint CLI overrides.
+- User wants to run experiment 2 from branch `tyj-test` while current `master`
+  checkout continues running jobs.
+- Recommended approach: create/use a separate `git worktree` directory for
+  `tyj-test`, then run the two experiment 2 commands from that directory.
+- The current `master` checkout should not be switched while jobs are running.
+- Added `scripts/run_exp2_tyj_test_worktree.sh` to create/reuse the `tyj-test`
+  worktree and then directly run the two experiment 2 train commands.
+- The script must not use background jobs, PID tracking, log redirection, or
+  wrapper launch functions; keep the train commands explicit.
+- If GPUs 0/1 are occupied, run the script with `GPU_IDS="4 5"`; dry-run has
+  been checked to emit `CUDA_VISIBLE_DEVICES=4` and `CUDA_VISIBLE_DEVICES=5`.
 
 ## Latest Code Change
 - Updated experiment 2 static reward root velocity scales from `1.5/1.5` to
   `2.0/1.0` in `body_velocity_env_cfg.py` and `rewards.py`.
 - Updated `tests/test_body_velocity_exp2.py` so the static reward default
   formula expects the unified `2.0/1.0` root scales.
+- Reworked `scripts/run_exp2_tyj_test_worktree.sh` to remove background launch,
+  PID files, and log files. Verified with `bash -n` and dry-run.
