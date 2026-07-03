@@ -4,9 +4,23 @@ import unittest
 import torch
 
 from smp.rl.tasks.steering import mdp
+from smp.rl.tasks.steering.body_velocity_env_cfg import (
+  g1_body_velocity_exp2_smp_env_cfg,
+  g1_body_velocity_static_exp2_smp_env_cfg,
+)
 
 
 class BodyVelocityExp2Test(unittest.TestCase):
+  def test_exp2_reward_terms_use_standard_task_smp_product_name(self):
+    for env_cfg_builder in (
+      g1_body_velocity_exp2_smp_env_cfg,
+      g1_body_velocity_static_exp2_smp_env_cfg,
+    ):
+      cfg = env_cfg_builder(play=False)
+      self.assertIn("task_smp_product", cfg.rewards)
+      self.assertNotIn("task_smp_product_exp2", cfg.rewards)
+      self.assertNotIn("task_smp_product_static_exp2", cfg.rewards)
+
   def test_body_velocity_command_cfg_accepts_static_probability(self):
     cfg = mdp.BodyVelocityCommandCfg(
       entity_name="robot",

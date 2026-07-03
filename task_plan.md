@@ -89,17 +89,21 @@ CUDA_VISIBLE_DEVICES=0 uv run scripts/train.py <TASK> \
 Use EGL and pass `--video True`. Current built-in play does not restore training
 command ranges; use this only when current registered env config is acceptable,
 or replace with the future exact-run wrapper.
+Do not use local filesystem discovery such as `find` to reshape the answer when
+logs are absent locally. Provide the standard expected path and mention if the
+file is not present in the current local checkout.
 
 ```bash
-cd /home/tyj/test/formal/smp_mjlab
+cd /home/tyj/test/formal/smp_mjlab_tyj-test
 mkdir -p /tmp/mplconfig_smp_play
 
+CUDA_VISIBLE_DEVICES=4 \
 MUJOCO_GL=egl \
 PYOPENGL_PLATFORM=egl \
 MUJOCO_EGL_DEVICE_ID=0 \
 MPLCONFIGDIR=/tmp/mplconfig_smp_play \
-./.venv/bin/python scripts/play.py Smp-BodyVelocity-G1 \
-  --checkpoint-file logs/rsl_rl/smp_exp1_body_velocity_loco/2026-06-30_12-39-16_range_xneg4_4_y0_yaw0/model_9999.pt \
+uv run scripts/play.py <TASK> \
+  --checkpoint-file logs/rsl_rl/<EXPERIMENT_NAME>/<TIMESTAMP>_<RUN_NAME>/model_9999.pt \
   --viewer viser \
   --num-envs 1 \
   --video True \
@@ -107,3 +111,32 @@ MPLCONFIGDIR=/tmp/mplconfig_smp_play \
   --video-width 1280 \
   --video-height 720
 ```
+
+W&B model-source replacement for play commands:
+
+```bash
+  --wandb-run-path <org-or-entity>/<wandb-project>/<wandb-run-id>
+```
+
+Use this in place of the `--checkpoint-file ...` line, following the README
+style `uv run scripts/play.py <TASK> --wandb-run-path <org>/<project>/<run>`.
+
+For experiment 2 specifically:
+- `<EXPERIMENT_NAME>` = `smp_exp2_body_velocity_static_switch`
+- Base run: task `Smp-BodyVelocity-Exp2-G1`, env cfg function
+  `g1_body_velocity_exp2_smp_env_cfg`, run name `base_linear_yaw_static_cmd`.
+- Static reward run: task `Smp-BodyVelocity-StaticExp2-G1`, env cfg function
+  `g1_body_velocity_static_exp2_smp_env_cfg`, run name
+  `static_cmd_root_foot_vel`.
+
+## Experiment 3 Prior Compare
+Run four direct train commands. Keep task defaults unchanged; only change prior
+checkpoint between baseline/custom for the same task. Use `CUDA_VISIBLE_DEVICES`
+instead of `--gpu-ids`.
+
+- Forward baseline: `Smp-Forward-G1`, prior `pretrained_loco.pt`.
+- Forward custom: `Smp-Forward-G1`, prior
+  `amp_loco_clips2_mirrored_lafan_norm_12000.pt`.
+- Steering baseline: `Smp-Steering-G1`, prior `pretrained_lafan_run.pt`.
+- Steering custom: `Smp-Steering-G1`, prior
+  `amp_loco_clips2_mirrored_lafan_norm_12000.pt`.

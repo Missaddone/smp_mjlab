@@ -26,7 +26,7 @@
 - Refreshed planning files at user request and reset the 6-message counter.
 
 ## Dialogue Refresh Counter
-- Last planning refresh: 2026-07-02 09:40:28 UTC.
+- Last planning refresh: 2026-07-03 02:35:55 UTC.
 - Count user messages after this refresh and update these files again after 6.
 - Counter since last refresh: 3.
 
@@ -42,6 +42,23 @@
   wrapper launch functions; keep the train commands explicit.
 - If GPUs 0/1 are occupied, run the script with `GPU_IDS="4 5"`; dry-run has
   been checked to emit `CUDA_VISIBLE_DEVICES=4` and `CUDA_VISIBLE_DEVICES=5`.
+- User asked for experiment 2 play commands following the experiment 1 group 3
+  EGL/video pattern. Reusable play template updated to use `uv run scripts/play.py`,
+  `--video True`, and an automatic `find ... model_9999.pt`.
+- Subagent found a likely bug in experiment 2 static command sampling: linear
+  velocity is assigned to `self.lin_vel_b` before static samples are zeroed.
+- User corrected play command standardization: do not use local `find` logic in
+  generated commands; provide expected log paths and note if files are absent
+  locally.
+- Updated experiment 2 reward term keys to use the standard `task_smp_product`
+  name in both `g1_body_velocity_exp2_smp_env_cfg` and
+  `g1_body_velocity_static_exp2_smp_env_cfg`.
+- User requested W&B model-source replacement lines under play commands and
+  experiment 3 four-group train commands. Planning refreshed after 6 user
+  messages.
+- User asked how viewer reset chooses initial robot state. Answer: reset uses
+  GSI sampled from the env config's SMP prior checkpoint, not a unified pose and
+  not directly the policy checkpoint.
 
 ## Latest Code Change
 - Updated experiment 2 static reward root velocity scales from `1.5/1.5` to

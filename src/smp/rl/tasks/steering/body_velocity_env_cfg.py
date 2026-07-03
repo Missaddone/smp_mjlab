@@ -202,7 +202,6 @@ def g1_body_velocity_exp2_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCf
     "amp_loco_clips2_mirrored_lafan_norm_12000.pt",
     _body_velocity_command(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, static_prob=0.2),
     reward_cfg=_body_velocity_exp2_reward(),
-    reward_name="task_smp_product_exp2",
   )
 
 
@@ -212,7 +211,6 @@ def g1_body_velocity_static_exp2_smp_env_cfg(play: bool = False) -> ManagerBased
     "amp_loco_clips2_mirrored_lafan_norm_12000.pt",
     _body_velocity_command(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, static_prob=0.2),
     reward_cfg=_body_velocity_static_exp2_reward(),
-    reward_name="task_smp_product_static_exp2",
   )
 
 

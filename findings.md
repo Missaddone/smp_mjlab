@@ -80,6 +80,54 @@
   `r_l = exp(-2.0 * ||v_xy||^2)` and
   `r_y = exp(-1.0 * v_yaw^2)`. The static-only difference is the additional
   foot velocity product penalty.
+- Final reward term key for experiment 2 env configs must remain
+  `task_smp_product` for comparability, even though the Python reward functions
+  differ (`body_velocity_exp2_task_smp_product` vs
+  `body_velocity_static_exp2_task_smp_product`).
+- Command config for both experiment 2 tasks is in
+  `src/smp/rl/tasks/steering/body_velocity_env_cfg.py`, via
+  `_body_velocity_command(-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, static_prob=0.2)`.
+- Command sampling is in `src/smp/rl/tasks/steering/mdp/commands.py`,
+  `BodyVelocityCommand._resample_command`.
+- Important issue found by subagent: current static command logic writes
+  `self.lin_vel_b[env_ids] = lin_vel_b` before zeroing `lin_vel_b[static_mask]`.
+  This means yaw is zeroed for static samples, but linear command may remain the
+  sampled value unless the implementation is fixed.
+- When generating play commands for remote runs, give the expected standard log
+  path such as
+  `logs/rsl_rl/<experiment>/<timestamp>_<run-name>/model_9999.pt`. If local logs
+  are absent, mention that fact without replacing the standard path with local
+  discovery code.
+- For W&B-based play, replace the local `--checkpoint-file ...` line with
+  `--wandb-run-path <org-or-entity>/<wandb-project>/<wandb-run-id>` as in the
+  README.
+
+## Play Reset / GSI
+- `scripts/play.py` registers SMP tasks and delegates to `mjlab.scripts.play`.
+  The env config includes `init_smp_state` as a startup event and `gsi_reset` as
+  a reset event.
+- `init_smp_state` loads the frozen SMP denoiser from
+  `cfg.events["init_smp_state"].params["ckpt_path"]`, then pre-samples a GSI
+  pool of motion windows from that prior.
+- On reset, `gsi_reset` uniformly samples windows from `env._smp_gsi_pool`.
+  `_prime_sim_and_buffer` writes the last frame to the robot root/joint sim
+  state and fills the SMP feature buffer with the whole sampled window.
+- Therefore viewer "reset environment" is prior-dependent and stochastic; it is
+  not a single unified default pose. It depends on the current registered
+  play-env config's `init_smp_state.ckpt_path`, not directly on the policy
+  checkpoint path.
+- Important for prior-comparison experiments: if train changed prior only via
+  CLI override, plain `scripts/play.py <TASK> --checkpoint-file ...` may use the
+  task's current default play prior rather than the run's training prior.
+
+## Git Worktree Cleanup
+- If `git switch tyj-test` fails because the branch is already checked out in
+  another worktree, run `git worktree list`, inspect the listed worktree path,
+  then remove it with `git worktree remove <path>` after confirming no training
+  job still depends on that directory.
+- If the worktree directory was manually deleted, run `git worktree prune`.
+- Use `git worktree remove --force <path>` only after saving/stashing any
+  uncommitted changes and confirming no process is using it.
 - If the current checkout is `master` and must keep running jobs alive, run
   `tyj-test` from a separate `git worktree` directory. Do not switch the active
   checkout used by running jobs.
