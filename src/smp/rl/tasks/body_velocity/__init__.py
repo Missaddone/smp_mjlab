@@ -1,35 +1,78 @@
-"""SMP steering tasks — registers ``Smp-Steering-G1`` and ``Smp-Forward-G1``
-on import."""
+"""SMP body-velocity tasks."""
 
 from mjlab.tasks.registry import register_mjlab_task
 
 from smp.rl.rl_cfg import unitree_g1_smp_ppo_runner_cfg
-from smp.rl.tasks.steering.forward_env_cfg import g1_forward_smp_env_cfg
-from smp.rl.tasks.steering.steering_env_cfg import g1_steering_smp_env_cfg
-
-_steering_rl = unitree_g1_smp_ppo_runner_cfg()
-_steering_rl.experiment_name = "smp_steering_g1"
-_steering_rl.run_name = "smp_steering_g1"
-
-register_mjlab_task(
-  task_id="Smp-Steering-G1",
-  env_cfg=g1_steering_smp_env_cfg(play=False),
-  play_env_cfg=g1_steering_smp_env_cfg(play=True),
-  rl_cfg=_steering_rl,
+from smp.rl.tasks.body_velocity.body_velocity_env_cfg import (
+  g1_body_velocity_smp_env_cfg,
+)
+from smp.rl.tasks.body_velocity.body_velocity_exp4_group1_env_cfg import (
+  g1_body_velocity_exp4_group1_smp_env_cfg,
+)
+from smp.rl.tasks.body_velocity.body_velocity_exp4_group2_env_cfg import (
+  g1_body_velocity_exp4_group2_smp_env_cfg,
+)
+from smp.rl.tasks.body_velocity.body_velocity_exp4_group3_env_cfg import (
+  g1_body_velocity_exp4_group3_smp_env_cfg,
+)
+from smp.rl.tasks.body_velocity.body_velocity_exp4_group4_env_cfg import (
+  g1_body_velocity_exp4_group4_smp_env_cfg,
+)
+from smp.rl.tasks.body_velocity.body_velocity_exp4_group5_env_cfg import (
+  g1_body_velocity_exp4_group5_smp_env_cfg,
+)
+from smp.rl.tasks.body_velocity.body_velocity_exp4_group6_env_cfg import (
+  g1_body_velocity_exp4_group6_smp_env_cfg,
+)
+from smp.rl.tasks.body_velocity.body_velocity_exp4_group7_env_cfg import (
+  g1_body_velocity_exp4_group7_smp_env_cfg,
 )
 
-_forward_rl = unitree_g1_smp_ppo_runner_cfg()
-_forward_rl.experiment_name = "smp_forward_g1"
-_forward_rl.run_name = "smp_forward_g1"
+
+def _runner(experiment_name: str, run_name: str | None = None):
+  cfg = unitree_g1_smp_ppo_runner_cfg()
+  cfg.experiment_name = experiment_name
+  cfg.run_name = run_name or experiment_name
+  return cfg
+
+_body_velocity_rl = _runner("smp_body_velocity_g1")
 
 register_mjlab_task(
-  task_id="Smp-Forward-G1",
-  env_cfg=g1_forward_smp_env_cfg(play=False),
-  play_env_cfg=g1_forward_smp_env_cfg(play=True),
-  rl_cfg=_forward_rl,
+  task_id="Smp-BodyVelocity-G1",
+  env_cfg=g1_body_velocity_smp_env_cfg(play=False),
+  play_env_cfg=g1_body_velocity_smp_env_cfg(play=True),
+  rl_cfg=_body_velocity_rl,
 )
+
+_EXP4_GROUPS = (
+  (1, g1_body_velocity_exp4_group1_smp_env_cfg),
+  (2, g1_body_velocity_exp4_group2_smp_env_cfg),
+  (3, g1_body_velocity_exp4_group3_smp_env_cfg),
+  (4, g1_body_velocity_exp4_group4_smp_env_cfg),
+  (5, g1_body_velocity_exp4_group5_smp_env_cfg),
+  (6, g1_body_velocity_exp4_group6_smp_env_cfg),
+  (7, g1_body_velocity_exp4_group7_smp_env_cfg),
+)
+
+for _group, _env_builder in _EXP4_GROUPS:
+  _rl = _runner(
+    "smp_exp4_body_velocity_ablation",
+    run_name=f"group{_group}",
+  )
+  register_mjlab_task(
+    task_id=f"Smp-BodyVelocity-Exp4-Group{_group}-G1",
+    env_cfg=_env_builder(play=False),
+    play_env_cfg=_env_builder(play=True),
+    rl_cfg=_rl,
+  )
 
 __all__ = [
-  "g1_forward_smp_env_cfg",
-  "g1_steering_smp_env_cfg",
+  "g1_body_velocity_exp4_group1_smp_env_cfg",
+  "g1_body_velocity_exp4_group2_smp_env_cfg",
+  "g1_body_velocity_exp4_group3_smp_env_cfg",
+  "g1_body_velocity_exp4_group4_smp_env_cfg",
+  "g1_body_velocity_exp4_group5_smp_env_cfg",
+  "g1_body_velocity_exp4_group6_smp_env_cfg",
+  "g1_body_velocity_exp4_group7_smp_env_cfg",
+  "g1_body_velocity_smp_env_cfg",
 ]

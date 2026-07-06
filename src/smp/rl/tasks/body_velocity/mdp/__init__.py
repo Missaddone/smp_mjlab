@@ -1,4 +1,4 @@
-"""SMP steering task MDP components."""
+"""SMP body-velocity task MDP components."""
 
 from mjlab.envs.mdp import *  # noqa: F401, F403
 

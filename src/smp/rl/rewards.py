@@ -88,3 +88,47 @@ def task_smp_product(
   sole SMP-buffer update), so it must be the task's only SMP reward term."""
   task = sum(w * func(env, **kw) for func, w, kw in task_terms)
   return task * smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+
+
+def body_velocity_task_smp_product(
+  env: ManagerBasedRlEnv,
+  task_terms: tuple[TaskTerm, ...],
+  fixed_timesteps: tuple[int, ...] = (8, 15, 22),
+  ws: float = 6.0,
+) -> torch.Tensor:
+  """Body-velocity ``r_task * r_smp`` wrapper.
+
+  The body-velocity task terms live under ``tasks/body_velocity/mdp/rewards.py``;
+  this function owns the SMP multiplication so the final reward composition
+  stays in the shared SMP reward module.
+  """
+  task = sum(w * func(env, **kw) for func, w, kw in task_terms)
+  return task * smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+
+
+def body_velocity_task_smp_mix(
+  env: ManagerBasedRlEnv,
+  linear_reward_func: "Callable[..., torch.Tensor]",
+  yaw_reward_func: "Callable[..., torch.Tensor]",
+  command_name: str = "body_velocity",
+  lin_vel_err_scale: float = 1.0,
+  yaw_rate_err_scale: float = 1.0,
+  product_weight: float = 0.7,
+  linear_weight: float = 0.15,
+  yaw_weight: float = 0.15,
+  fixed_timesteps: tuple[int, ...] = (8, 15, 22),
+  ws: float = 6.0,
+) -> torch.Tensor:
+  """``(w_p*r_l*r_y + w_l*r_l + w_y*r_y) * r_smp`` for body-velocity ablations."""
+  linear = linear_reward_func(
+    env,
+    command_name=command_name,
+    lin_vel_err_scale=lin_vel_err_scale,
+  )
+  yaw = yaw_reward_func(
+    env,
+    command_name=command_name,
+    yaw_rate_err_scale=yaw_rate_err_scale,
+  )
+  task = product_weight * linear * yaw + linear_weight * linear + yaw_weight * yaw
+  return task * smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)

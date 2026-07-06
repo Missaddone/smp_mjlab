@@ -1,7 +1,4 @@
-"""Steering reward components: linear-velocity tracking + face alignment.
-
-SMP-gated via the generic ``smp.rl.rewards.smp_product``.
-"""
+"""Body-velocity task reward components."""
 
 from __future__ import annotations
 
@@ -13,44 +10,87 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
 
-  from smp.rl.tasks.steering.mdp.commands import SteeringCommand
+  from smp.rl.tasks.body_velocity.mdp.commands import BodyVelocityCommand
 
 
 _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
 
 
-def steering_target_velocity(
+def _root_lin_vel_w(data) -> torch.Tensor:
+  return data.root_link_lin_vel_w if hasattr(data, "root_link_lin_vel_w") else data.root_lin_vel_w
+
+
+def _root_ang_vel_w(data) -> torch.Tensor:
+  return data.root_link_ang_vel_w if hasattr(data, "root_link_ang_vel_w") else data.root_ang_vel_w
+
+
+def _root_lin_vel_b(data) -> torch.Tensor:
+  if hasattr(data, "root_link_lin_vel_b"):
+    return data.root_link_lin_vel_b
+  if hasattr(data, "root_lin_vel_b"):
+    return data.root_lin_vel_b
+  root_lin_vel_w = _root_lin_vel_w(data)
+  heading_w = data.heading_w
+  cos_h = torch.cos(heading_w)
+  sin_h = torch.sin(heading_w)
+  x_w, y_w = root_lin_vel_w[:, 0], root_lin_vel_w[:, 1]
+  xy_b = torch.stack([cos_h * x_w + sin_h * y_w, -sin_h * x_w + cos_h * y_w], dim=-1)
+  return torch.cat([xy_b, root_lin_vel_w[:, 2:3]], dim=-1)
+
+
+def _root_yaw_rate(data) -> torch.Tensor:
+  if hasattr(data, "root_link_ang_vel_b"):
+    return data.root_link_ang_vel_b[:, 2]
+  if hasattr(data, "root_ang_vel_b"):
+    return data.root_ang_vel_b[:, 2]
+  return _root_ang_vel_w(data)[:, 2]
+
+
+def body_velocity_linear_tracking(
   env: "ManagerBasedRlEnv",
   command_name: str,
-  vel_err_scale: float = 0.5,
+  lin_vel_err_scale: float = 2.0,
   asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
 ) -> torch.Tensor:
-  """``exp(-vel_err_scale * ‖tar_speed·tar_dir - root_vel_xy‖²)``, zeroed when
-  root velocity projects negatively onto the target dir (no reward for walking
-  the wrong way)."""
+  """``exp(-lin_vel_err_scale * ||v_xy_body - v_xy_cmd_body||^2)``."""
   asset = env.scene[asset_cfg.name]
-  cmd: "SteeringCommand" = env.command_manager.get_term(command_name)  # type: ignore[assignment]
+  cmd: "BodyVelocityCommand" = env.command_manager.get_term(command_name)  # type: ignore[assignment]
 
-  root_vel_xy = asset.data.root_link_lin_vel_w[:, :2]
-  tar_vel = cmd.tar_speed.unsqueeze(-1) * cmd.tar_dir_w
-  vel_err = ((tar_vel - root_vel_xy) ** 2).sum(dim=-1)
-
-  proj_speed = (cmd.tar_dir_w * root_vel_xy).sum(dim=-1)
-  reward = torch.exp(-vel_err_scale * vel_err)
-  reward = torch.where(proj_speed < 0, torch.zeros_like(reward), reward)
-  return reward
+  root_lin_vel_b = _root_lin_vel_b(asset.data)
+  lin_vel_err = torch.sum((root_lin_vel_b[:, :2] - cmd.lin_vel_b) ** 2, dim=-1)
+  return torch.exp(-lin_vel_err_scale * lin_vel_err)
 
 
-def steering_face_direction(
+def body_velocity_linear_tracking_zero_negative_projection(
   env: "ManagerBasedRlEnv",
   command_name: str,
+  lin_vel_err_scale: float = 2.0,
   asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
 ) -> torch.Tensor:
-  """``max(face_dir · char_face_dir, 0)`` — both unit world-xy vectors."""
+  """Body-velocity linear tracking, zeroed when root velocity opposes command."""
   asset = env.scene[asset_cfg.name]
-  cmd: "SteeringCommand" = env.command_manager.get_term(command_name)  # type: ignore[assignment]
+  cmd: "BodyVelocityCommand" = env.command_manager.get_term(command_name)  # type: ignore[assignment]
 
-  heading_w = asset.data.heading_w
-  char_face_w = torch.stack([torch.cos(heading_w), torch.sin(heading_w)], dim=-1)
-  face_dot = (cmd.face_dir_w * char_face_w).sum(dim=-1)
-  return face_dot.clamp_min(0.0)
+  reward = body_velocity_linear_tracking(
+    env,
+    command_name=command_name,
+    lin_vel_err_scale=lin_vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  root_lin_vel_b = _root_lin_vel_b(asset.data)
+  projection = torch.sum(root_lin_vel_b[:, :2] * cmd.lin_vel_b, dim=-1)
+  return torch.where(projection < 0.0, torch.zeros_like(reward), reward)
+
+
+def body_velocity_yaw_tracking(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  yaw_rate_err_scale: float = 1.0,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """``exp(-yaw_rate_err_scale * (yaw_rate_body - yaw_rate_cmd)^2)``."""
+  asset = env.scene[asset_cfg.name]
+  cmd: "BodyVelocityCommand" = env.command_manager.get_term(command_name)  # type: ignore[assignment]
+
+  yaw_rate_err = (cmd.yaw_rate - _root_yaw_rate(asset.data)) ** 2
+  return torch.exp(-yaw_rate_err_scale * yaw_rate_err)
