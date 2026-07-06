@@ -6,8 +6,8 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 ## Current Phase
 - Status: in progress
 - Branch: reconstruct
-- Current experiment: Experiment 4
-- Task under construction: Smp-BodyVelocity-G1
+- Current experiment: prior dataset processing after Experiment 4
+- Task under construction: LAFAN CSV visualization and clipping for prior data
 
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
@@ -37,3 +37,4 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 ## Open Items
 - ONNX export script now exists at `scripts/export_onnx_9999.sh`.
 - If user asks to run training, use W&B and keep command/prior consistent with the current env cfg.
+- Experiment 4 was recorded to Notion flow record as item `4`; user still needs to fill actual effect.

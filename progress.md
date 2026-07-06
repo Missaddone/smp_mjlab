@@ -18,6 +18,24 @@
 - Refreshed planning context after the message-count threshold.
 - Current user-message counter since this refresh: 0.
 
+## 2026-07-06
+- Logged the user request about ending Experiment 4 and LAFAN/viser CSV clipping to Notion.
+- Recorded Experiment 4 in Notion `流程记录` as item `4`; effect is marked for user follow-up.
+- Rechecked `my-dev:scripts/clip_csv_viewer.py` and confirmed CLI parameters and default export path.
+- Confirmed current branch is `reconstruct`, worktree is clean, latest commit is `15494f8 formal_exp4,can run train or play or export onnx`.
+- Added `scripts/make_static_csv.py` and generated `datasets/csv/forward/stop_static.csv` from `datasets/csv/forward/stop.csv`.
+- Could not log the static-stop request to Notion because the Notion auth token expired with HTTP 401.
+- Verified static CSV generation and CSV->NPZ conversion using `MPLCONFIGDIR=/tmp/mplconfig_smp_check WARP_CACHE_PATH=/tmp/warp_cache_smp_check`.
+- Current user-message counter since this refresh: 1.
+
+## Errors Encountered
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| `uv: not found` | Tried `uv run scripts/make_static_csv.py` locally | Used `./.venv/bin/python scripts/make_static_csv.py`; final user commands can still use `uv run` on servers with uv. |
+| `bash -n` on a Python script | Tried shell syntax check on `scripts/make_static_csv.py` | Replaced with `./.venv/bin/python -m py_compile scripts/make_static_csv.py`. |
+| Warp cache write failed under `/home/tyj/.cache/warp` | First CSV->NPZ verification | Set `WARP_CACHE_PATH=/tmp/warp_cache_smp_check` and reran successfully. |
+| Notion token expired HTTP 401 | Tried logging user message | Continue work and tell user to re-auth Notion for backfill. |
+
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`
 - `src/smp/rl/tasks/__init__.py`

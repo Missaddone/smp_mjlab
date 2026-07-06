@@ -42,3 +42,21 @@
 - The ONNX export script is `scripts/export_onnx_9999.sh`.
 - The script only accepts `model_9999.pt` checkpoints and writes `model_9999.onnx` in the same directory.
 - Use the same task id that produced the checkpoint, because the runner rebuilds the environment and actor observation shape from that task config.
+
+## LAFAN CSV Viser Clipping
+- `my-dev` contains `scripts/clip_csv_viewer.py`; current `reconstruct` branch did not have this script when checked on 2026-07-06.
+- Tool command pattern: `uv run scripts/clip_csv_viewer.py --input datasets/csv/lafan/<file>.csv --input-fps 30 --output-fps 50`.
+- The viewer starts a `viser.ViserServer()` and prints a browser URL.
+- GUI controls: `Play / Pause`, `Set Start`, `Set End`, frame slider, `Export CSV`.
+- Default export directory is `datasets/csv_clips`.
+- Default export filename is `<input_stem>_clip_<start_row>_<end_row>.csv`; duplicate names get `_01`, `_02`, etc.
+- Export writes original CSV rows, not interpolated rows, so the result can be passed to `scripts/csv_to_npz.py`.
+- CSV layout expected by related tools: `base_pos(3), base_quat_wxyz(4), joint_pos(29)`.
+
+## Forward Static Stop Prior Data
+- User added `datasets/csv/forward/stop.csv`, but it has only 3 rows and is skipped by `scripts/csv_to_npz.py` because default `window_size=10` and the 30->50fps interpolation gives only 4 frames.
+- Added `scripts/make_static_csv.py` to repeat one source pose into a longer static CSV.
+- Default output is `datasets/csv/forward/stop_static.csv`.
+- Default settings: source row `-1`, `seconds=30`, `fps=30`, `min_rows=300`; actual generated file has 900 rows.
+- Verification: converting `datasets/csv/forward` to `/tmp/smp_forward_npz_check` produced `stop_static.npz` with shape `(1490, 10, 59)`; original `stop.csv` was skipped.
+- Verification of `stop_static.npz`: `root_lin_vel_max_abs=0.0`, `root_ang_vel_max_abs=3.72e-07`.
