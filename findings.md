@@ -60,3 +60,11 @@
 - Default settings: source row `-1`, `seconds=30`, `fps=30`, `min_rows=300`; actual generated file has 900 rows.
 - Verification: converting `datasets/csv/forward` to `/tmp/smp_forward_npz_check` produced `stop_static.npz` with shape `(1490, 10, 59)`; original `stop.csv` was skipped.
 - Verification of `stop_static.npz`: `root_lin_vel_max_abs=0.0`, `root_ang_vel_max_abs=3.72e-07`.
+
+## Experiment 6 Forward Command Ablations
+- Original `Smp-Forward-G1` command remains unchanged: `tar_speed_min=0.5`, `tar_speed_max=5.0`, no zero probability, no low-speed bin, no dead zone.
+- Added generic steering target-speed sampling parameters in `src/smp/rl/tasks/steering/mdp/commands.py`: `zero_speed_prob`, `low_speed_prob`, `low_speed_min`, `low_speed_max`, and `dead_zone_speed`; all default to non-active behavior.
+- Registered `Smp-Forward-Exp6-Group4-G1`: `P(v=0)=0.2`, otherwise `v~Uniform(0,5)`.
+- Registered `Smp-Forward-Exp6-Group5-G1`: `P(v=0)=0.2`, `P(v~Uniform(0,1.5))=0.4`, `P(v~Uniform(1.5,5))=0.4`.
+- Registered `Smp-Forward-Exp6-Group6-G1`: sample `v~Uniform(0,5)`, then apply dead zone `v=0 if v<1.0`, otherwise keep sampled speed.
+- Reward, prior default, observations, terminations, target/facing direction behavior all inherit from original forward config unless CLI overrides change ckpt path.

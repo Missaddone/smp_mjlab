@@ -6,8 +6,8 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 ## Current Phase
 - Status: in progress
 - Branch: reconstruct
-- Current experiment: prior dataset processing after Experiment 4
-- Task under construction: LAFAN CSV visualization and clipping for prior data
+- Current experiment: Experiment 6 forward stop command ablations
+- Task under construction: forward target-speed command sampling variants
 
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
@@ -38,3 +38,4 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - ONNX export script now exists at `scripts/export_onnx_9999.sh`.
 - If user asks to run training, use W&B and keep command/prior consistent with the current env cfg.
 - Experiment 4 was recorded to Notion flow record as item `4`; user still needs to fill actual effect.
+- Experiment 6 now has forward command groups 4-6 registered under `Smp-Forward-Exp6-Group{4,5,6}-G1`.

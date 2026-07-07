@@ -31,6 +31,37 @@ def _dir_world_to_local(dir_w: torch.Tensor, heading_w: torch.Tensor) -> torch.T
   return torch.stack([cos_h * x_w + sin_h * y_w, -sin_h * x_w + cos_h * y_w], dim=-1)
 
 
+def sample_target_speeds(
+  *,
+  random_values: torch.Tensor,
+  uniform_values: torch.Tensor,
+  zero_speed_prob: float,
+  low_speed_prob: float,
+  low_speed_min: float,
+  low_speed_max: float,
+  tar_speed_min: float,
+  tar_speed_max: float,
+  dead_zone_speed: float,
+) -> torch.Tensor:
+  """Sample target speeds with optional zero mass, low-speed bin, and dead zone."""
+  speeds = tar_speed_min + uniform_values * (tar_speed_max - tar_speed_min)
+
+  if low_speed_prob > 0.0:
+    low_speeds = low_speed_min + uniform_values * (low_speed_max - low_speed_min)
+    low_mask = (random_values >= zero_speed_prob) & (
+      random_values < zero_speed_prob + low_speed_prob
+    )
+    speeds = torch.where(low_mask, low_speeds, speeds)
+
+  if zero_speed_prob > 0.0:
+    speeds = torch.where(random_values < zero_speed_prob, torch.zeros_like(speeds), speeds)
+
+  if dead_zone_speed > 0.0:
+    speeds = torch.where(speeds < dead_zone_speed, torch.zeros_like(speeds), speeds)
+
+  return speeds
+
+
 class SteeringCommand(CommandTerm):
   """Periodic target dir + speed + face dir command (world frame internally)."""
 
@@ -87,8 +118,16 @@ class SteeringCommand(CommandTerm):
     self.tar_dir_w[env_ids, 0] = torch.cos(theta)
     self.tar_dir_w[env_ids, 1] = torch.sin(theta)
 
-    self.tar_speed[env_ids] = torch.empty(n, device=self.device).uniform_(
-      self.cfg.tar_speed_min, self.cfg.tar_speed_max
+    self.tar_speed[env_ids] = sample_target_speeds(
+      random_values=torch.rand(n, device=self.device),
+      uniform_values=torch.rand(n, device=self.device),
+      zero_speed_prob=self.cfg.zero_speed_prob,
+      low_speed_prob=self.cfg.low_speed_prob,
+      low_speed_min=self.cfg.low_speed_min,
+      low_speed_max=self.cfg.low_speed_max,
+      tar_speed_min=self.cfg.tar_speed_min,
+      tar_speed_max=self.cfg.tar_speed_max,
+      dead_zone_speed=self.cfg.dead_zone_speed,
     )
 
     if self.cfg.rand_face_dir:
@@ -227,6 +266,11 @@ class SteeringCommandCfg(CommandTermCfg):
   rand_face_dir: bool = True
   tar_speed_min: float = 0.5
   tar_speed_max: float = 3.0
+  zero_speed_prob: float = 0.0
+  low_speed_prob: float = 0.0
+  low_speed_min: float = 0.0
+  low_speed_max: float = 1.5
+  dead_zone_speed: float = 0.0
 
   @dataclass
   class VizCfg:
@@ -238,6 +282,26 @@ class SteeringCommandCfg(CommandTermCfg):
   def __post_init__(self) -> None:
     if self.viz is None:
       self.viz = SteeringCommandCfg.VizCfg()
+    total_prob = self.zero_speed_prob + self.low_speed_prob
+    if not 0.0 <= self.zero_speed_prob <= 1.0:
+      raise ValueError(f"zero_speed_prob must be in [0, 1], got {self.zero_speed_prob}")
+    if not 0.0 <= self.low_speed_prob <= 1.0:
+      raise ValueError(f"low_speed_prob must be in [0, 1], got {self.low_speed_prob}")
+    if total_prob > 1.0:
+      raise ValueError(
+        "zero_speed_prob + low_speed_prob must be <= 1, "
+        f"got {total_prob}"
+      )
+    if self.low_speed_min > self.low_speed_max:
+      raise ValueError(
+        f"low_speed_min must be <= low_speed_max, got "
+        f"{self.low_speed_min} > {self.low_speed_max}"
+      )
+    if self.tar_speed_min > self.tar_speed_max:
+      raise ValueError(
+        f"tar_speed_min must be <= tar_speed_max, got "
+        f"{self.tar_speed_min} > {self.tar_speed_max}"
+      )
 
   def build(self, env: "ManagerBasedRlEnv") -> SteeringCommand:
     return SteeringCommand(self, env)

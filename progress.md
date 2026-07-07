@@ -36,6 +36,15 @@
 | Warp cache write failed under `/home/tyj/.cache/warp` | First CSV->NPZ verification | Set `WARP_CACHE_PATH=/tmp/warp_cache_smp_check` and reran successfully. |
 | Notion token expired HTTP 401 | Tried logging user message | Continue work and tell user to re-auth Notion for backfill. |
 
+## 2026-07-07
+- Logged Experiment 6 forward command-sampling messages to Notion.
+- Added tests for forward Experiment 6 group 4-6 command configs, task registration, original forward preservation, and sampling helper behavior.
+- Added `sample_target_speeds` and optional sampling fields to `SteeringCommandCfg`.
+- Added and registered `Smp-Forward-Exp6-Group4-G1`, `Smp-Forward-Exp6-Group5-G1`, and `Smp-Forward-Exp6-Group6-G1`.
+- Verification passed: `MPLCONFIGDIR=/tmp/mplconfig_smp_tests ./.venv/bin/python -m unittest tests.test_forward_exp6_task tests.test_body_velocity_task`.
+- Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering tests/test_forward_exp6_task.py`.
+- Current user-message counter since this refresh: 0.
+
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`
 - `src/smp/rl/tasks/__init__.py`
