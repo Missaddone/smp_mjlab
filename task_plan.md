@@ -42,5 +42,5 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - Experiment 5 must use original master-style `Smp-Steering-G1` command/reward/observation; only prior should differ.
 - Experiment 5 speed sampling is the original steering config: `tar_speed_min=0.5`, `tar_speed_max=2.0`, random target direction and random face direction.
 - Experiment 5 scripts:
-  - `scripts/run_exp5_prepare_priors.sh` prepares CSV subsets, converts to NPZ, pretrains priors, and copies final pt files into `datasets/pretrain_ckpt/`.
+  - `scripts/run_exp5_prepare_priors.sh` prepares CSV subsets, mirrors each subset with originals included, converts the combined original+mirror CSVs to NPZ, pretrains priors, and copies final pt files into `datasets/pretrain_ckpt/`.
   - `scripts/run_exp5_policy_groups1_4.sh` trains original `Smp-Steering-G1` with only `ckpt-path` changed per group.

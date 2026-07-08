@@ -66,6 +66,10 @@
 - Verified `bash -n scripts/run_exp5_prepare_priors.sh` and `bash -n scripts/run_exp5_policy_groups1_4.sh`.
 - Tightened group4 dir-back matching to avoid accidental inclusion of `low_no_dir_back*` and `low_nodir_back*`.
 - Current user-message counter since this refresh: 3.
+- Logged the correction that all Experiment 5 prior groups must include mirrored counterparts.
+- Updated `scripts/run_exp5_prepare_priors.sh` so each group first stages raw CSVs, then runs `scripts/mirror_motion_data.py --include-original --csv --no-npz`, then converts the combined original+mirror directory to NPZ and pretrains.
+- Verified `bash -n scripts/run_exp5_prepare_priors.sh`.
+- Current user-message counter since this refresh: 4.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

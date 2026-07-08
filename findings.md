@@ -90,4 +90,5 @@
   - `exp5_group3_no_stop2`: all `datasets/csv_clips/*.csv` except names matching `*stop2*.csv`; keeps `stop_static.csv`.
   - `exp5_group4_dir_back_forward_walk`: `low_dir_back*.csv` from `datasets/csv_clips` plus `datasets/csv/forward/g1_walk.csv` by default.
 - Experiment 5 prior script writes NPZ to `datasets/npz/exp5/<group_name>` and final prior checkpoints to `datasets/pretrain_ckpt/<group_name>.pt`.
+- Experiment 5 prior script now stages each group's selected source files under `datasets/exp5_prior_sources/<group_name>/raw`, mirrors them into `datasets/exp5_prior_sources/<group_name>/mirrored` with `--include-original`, and converts the mirrored directory to NPZ. Every prior group therefore contains both original and left-right mirrored clips by default.
 - Experiment 5 policy script uses original `Smp-Steering-G1` and W&B experiment name `smp_exp5_steering_prior_compare`.

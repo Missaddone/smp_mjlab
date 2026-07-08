@@ -20,15 +20,20 @@ require_csv_clips() {
     echo "[ERROR] CSV_CLIPS_DIR not found: $CSV_CLIPS_DIR" >&2
     exit 1
   fi
+  if [ ! -f scripts/mirror_motion_data.py ]; then
+    echo "[ERROR] Mirror tool not found: scripts/mirror_motion_data.py" >&2
+    exit 1
+  fi
 }
 
 reset_group_dir() {
   local group_name="$1"
-  local src_dir="$WORK_ROOT/$group_name"
+  local raw_dir="$WORK_ROOT/$group_name/raw"
+  local mirrored_dir="$WORK_ROOT/$group_name/mirrored"
   local npz_dir="$NPZ_ROOT/$group_name"
 
-  rm -rf "$src_dir" "$npz_dir"
-  mkdir -p "$src_dir" "$npz_dir" "$CKPT_ROOT"
+  rm -rf "$WORK_ROOT/$group_name" "$npz_dir"
+  mkdir -p "$raw_dir" "$mirrored_dir" "$npz_dir" "$CKPT_ROOT"
 }
 
 copy_all_clips() {
@@ -76,18 +81,34 @@ check_group_nonempty() {
   echo "[INFO] $src_dir csv_count=$count"
 }
 
+mirror_group_csvs() {
+  local group_name="$1"
+  local raw_dir="$WORK_ROOT/$group_name/raw"
+  local mirrored_dir="$WORK_ROOT/$group_name/mirrored"
+
+  check_group_nonempty "$raw_dir"
+  uv run scripts/mirror_motion_data.py \
+    --input-dir "$raw_dir" \
+    --output-dir "$mirrored_dir" \
+    --include-original \
+    --overwrite \
+    --csv \
+    --no-npz
+  check_group_nonempty "$mirrored_dir"
+}
+
 convert_and_pretrain() {
   local group_name="$1"
-  local src_dir="$WORK_ROOT/$group_name"
+  local mirrored_dir="$WORK_ROOT/$group_name/mirrored"
   local npz_dir="$NPZ_ROOT/$group_name"
   local ckpt_path="$CKPT_ROOT/$group_name.pt"
   local run_root="$LOG_DIR/$group_name"
   local latest_run
 
-  check_group_nonempty "$src_dir"
+  mirror_group_csvs "$group_name"
 
   uv run scripts/csv_to_npz.py \
-    --input-dir "$src_dir" \
+    --input-dir "$mirrored_dir" \
     --output-dir "$npz_dir" \
     --input-fps "$INPUT_FPS" \
     --output-fps "$OUTPUT_FPS"
@@ -117,21 +138,21 @@ convert_and_pretrain() {
 prepare_group() {
   local group_name="$1"
   local mode="$2"
-  local src_dir="$WORK_ROOT/$group_name"
+  local raw_dir="$WORK_ROOT/$group_name/raw"
 
   reset_group_dir "$group_name"
   case "$mode" in
     all)
-      copy_all_clips "$src_dir"
+      copy_all_clips "$raw_dir"
       ;;
     no_stop)
-      copy_clips_without_stop "$src_dir"
+      copy_clips_without_stop "$raw_dir"
       ;;
     no_stop2)
-      copy_clips_without_stop2 "$src_dir"
+      copy_clips_without_stop2 "$raw_dir"
       ;;
     dir_back_forward_walk)
-      copy_dir_back_and_forward_walk "$src_dir"
+      copy_dir_back_and_forward_walk "$raw_dir"
       ;;
     *)
       echo "[ERROR] Unknown mode: $mode" >&2
