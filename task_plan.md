@@ -7,7 +7,7 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - Status: in progress
 - Branch: reconstruct
 - Current experiment: Experiment 6 forward stop command ablations
-- Task under construction: forward target-speed command sampling variants
+- Task under construction: forward stop-prior command sampling variants groups 7-12
 
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
@@ -38,4 +38,6 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - ONNX export script now exists at `scripts/export_onnx_9999.sh`.
 - If user asks to run training, use W&B and keep command/prior consistent with the current env cfg.
 - Experiment 4 was recorded to Notion flow record as item `4`; user still needs to fill actual effect.
-- Experiment 6 now has forward command groups 4-6 registered under `Smp-Forward-Exp6-Group{4,5,6}-G1`.
+- Experiment 6 now has forward command groups 4-12 registered under `Smp-Forward-Exp6-Group{4..12}-G1`.
+- Experiment 5 must use original master-style `Smp-Steering-G1` command/reward/observation; only prior should differ.
+- Experiment 5 speed sampling is the original steering config: `tar_speed_min=0.5`, `tar_speed_max=2.0`, random target direction and random face direction.

@@ -44,6 +44,22 @@
 - Verification passed: `MPLCONFIGDIR=/tmp/mplconfig_smp_tests ./.venv/bin/python -m unittest tests.test_forward_exp6_task tests.test_body_velocity_task`.
 - Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering tests/test_forward_exp6_task.py`.
 - Current user-message counter since this refresh: 0.
+- Logged the Experiment 5 steering-prior request to Notion by inserting a row into the final existing table instead of creating a new table.
+- Used the configured project subagent to compare current branch vs `master` for `Smp-Steering-G1`.
+- Confirmed current `Smp-Steering-G1` env config and rewards match `master`; only exp6 optional command sampling code differs, with defaults inactive for steering.
+- Found batch mirror tooling only in `my-dev:scripts/mirror_motion_data.py`; flagged the CSV quaternion order mismatch risk before recommending bulk use.
+- Current user-message counter since this refresh: 1.
+
+## 2026-07-08
+- Logged the Experiment 6 group 7-12 request to Notion in the existing final table.
+- Added and registered `Smp-Forward-Exp6-Group7-G1` through `Smp-Forward-Exp6-Group12-G1`.
+- Added `scripts/run_exp6_groups7_12.sh` with direct `CUDA_VISIBLE_DEVICES=N uv run scripts/train.py ...` commands and W&B logging.
+- Updated `tests/test_forward_exp6_task.py` to check group 7-12 command configs and task registration.
+- Verification passed: `bash -n scripts/run_exp6_groups7_12.sh`.
+- Verification passed: `MPLCONFIGDIR=/tmp/mplconfig_smp_tests ./.venv/bin/python -m unittest tests.test_forward_exp6_task`.
+- Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering tests/test_forward_exp6_task.py`.
+- Note: `ruff` was not used on the bash script because it treats `.sh` as Python and reports expected syntax errors.
+- Current user-message counter since this refresh: 2.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

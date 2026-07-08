@@ -14,6 +14,24 @@ from smp.rl.tasks.steering.forward_exp6_group5_env_cfg import (
 from smp.rl.tasks.steering.forward_exp6_group6_env_cfg import (
   g1_forward_exp6_group6_smp_env_cfg,
 )
+from smp.rl.tasks.steering.forward_exp6_group7_env_cfg import (
+  g1_forward_exp6_group7_smp_env_cfg,
+)
+from smp.rl.tasks.steering.forward_exp6_group8_env_cfg import (
+  g1_forward_exp6_group8_smp_env_cfg,
+)
+from smp.rl.tasks.steering.forward_exp6_group9_env_cfg import (
+  g1_forward_exp6_group9_smp_env_cfg,
+)
+from smp.rl.tasks.steering.forward_exp6_group10_env_cfg import (
+  g1_forward_exp6_group10_smp_env_cfg,
+)
+from smp.rl.tasks.steering.forward_exp6_group11_env_cfg import (
+  g1_forward_exp6_group11_smp_env_cfg,
+)
+from smp.rl.tasks.steering.forward_exp6_group12_env_cfg import (
+  g1_forward_exp6_group12_smp_env_cfg,
+)
 from smp.rl.tasks.steering.steering_env_cfg import g1_steering_smp_env_cfg
 
 _steering_rl = unitree_g1_smp_ppo_runner_cfg()
@@ -42,6 +60,12 @@ _EXP6_FORWARD_GROUPS = (
   (4, g1_forward_exp6_group4_smp_env_cfg),
   (5, g1_forward_exp6_group5_smp_env_cfg),
   (6, g1_forward_exp6_group6_smp_env_cfg),
+  (7, g1_forward_exp6_group7_smp_env_cfg),
+  (8, g1_forward_exp6_group8_smp_env_cfg),
+  (9, g1_forward_exp6_group9_smp_env_cfg),
+  (10, g1_forward_exp6_group10_smp_env_cfg),
+  (11, g1_forward_exp6_group11_smp_env_cfg),
+  (12, g1_forward_exp6_group12_smp_env_cfg),
 )
 
 for _group, _env_builder in _EXP6_FORWARD_GROUPS:
@@ -59,6 +83,12 @@ __all__ = [
   "g1_forward_exp6_group4_smp_env_cfg",
   "g1_forward_exp6_group5_smp_env_cfg",
   "g1_forward_exp6_group6_smp_env_cfg",
+  "g1_forward_exp6_group7_smp_env_cfg",
+  "g1_forward_exp6_group8_smp_env_cfg",
+  "g1_forward_exp6_group9_smp_env_cfg",
+  "g1_forward_exp6_group10_smp_env_cfg",
+  "g1_forward_exp6_group11_smp_env_cfg",
+  "g1_forward_exp6_group12_smp_env_cfg",
   "g1_forward_smp_env_cfg",
   "g1_steering_smp_env_cfg",
 ]

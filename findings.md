@@ -67,4 +67,20 @@
 - Registered `Smp-Forward-Exp6-Group4-G1`: `P(v=0)=0.2`, otherwise `v~Uniform(0,5)`.
 - Registered `Smp-Forward-Exp6-Group5-G1`: `P(v=0)=0.2`, `P(v~Uniform(0,1.5))=0.4`, `P(v~Uniform(1.5,5))=0.4`.
 - Registered `Smp-Forward-Exp6-Group6-G1`: sample `v~Uniform(0,5)`, then apply dead zone `v=0 if v<1.0`, otherwise keep sampled speed.
+- Registered `Smp-Forward-Exp6-Group7-G1`: `P(v=0)=0.3`, otherwise `v~Uniform(0,5)`.
+- Registered `Smp-Forward-Exp6-Group8-G1`: `P(v=0)=0.4`, otherwise `v~Uniform(0,5)`.
+- Registered `Smp-Forward-Exp6-Group9-G1`: `P(v=0)=0.5`, otherwise `v~Uniform(0,5)`.
+- Registered `Smp-Forward-Exp6-Group10-G1`: `P(v=0)=0.3`, `P(v~Uniform(0,1.5))=0.35`, `P(v~Uniform(1.5,5))=0.35`.
+- Registered `Smp-Forward-Exp6-Group11-G1`: `P(v=0)=0.4`, `P(v~Uniform(0,1.5))=0.3`, `P(v~Uniform(1.5,5))=0.3`.
+- Registered `Smp-Forward-Exp6-Group12-G1`: `P(v=0)=0.5`, `P(v~Uniform(0,1.5))=0.25`, `P(v~Uniform(1.5,5))=0.25`.
 - Reward, prior default, observations, terminations, target/facing direction behavior all inherit from original forward config unless CLI overrides change ckpt path.
+- Direct bash runner for groups 7-12: `scripts/run_exp6_groups7_12.sh`; it overrides prior to `datasets/pretrain_ckpt/pretrained_forward_stop.pt`.
+
+## Experiment 5 Steering Prior
+- Goal: train/evaluate a prior for multi-direction walking without high speed; keep original `Smp-Steering-G1` command/reward/observation exactly aligned with `master`.
+- `src/smp/rl/tasks/steering/steering_env_cfg.py` matches `master` for `Smp-Steering-G1`.
+- Original steering command config: `rand_tar_dir=True`, `rand_face_dir=True`, `tar_speed_min=0.5`, `tar_speed_max=2.0`, `resampling_time_range=(3.0, 8.0)`.
+- Original steering reward key: `task_smp_product`; task terms are `0.5 * steering_target_velocity(vel_err_scale=1.0) + 0.5 * steering_face_direction`, multiplied by SMP guidance inside `task_smp_product`.
+- Current branch has extra optional exp6 speed-sampling fields in `src/smp/rl/tasks/steering/mdp/commands.py`; defaults are inactive, so `Smp-Steering-G1` behavior is equivalent to `master`, but file contents are not identical.
+- Batch mirror utility exists in `my-dev:scripts/mirror_motion_data.py`, not in current branch or `master`.
+- Important risk: README says input CSV quaternion columns are `x y z w`; the `my-dev` mirror script docstring says CSV layout uses `w x y z`. Do not blindly bulk-trust mirrored CSVs without correcting/validating quaternion handling and visualizing one mirrored clip.
