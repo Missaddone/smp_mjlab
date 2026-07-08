@@ -84,3 +84,10 @@
 - Current branch has extra optional exp6 speed-sampling fields in `src/smp/rl/tasks/steering/mdp/commands.py`; defaults are inactive, so `Smp-Steering-G1` behavior is equivalent to `master`, but file contents are not identical.
 - Batch mirror utility exists in `my-dev:scripts/mirror_motion_data.py`, not in current branch or `master`.
 - Important risk: README says input CSV quaternion columns are `x y z w`; the `my-dev` mirror script docstring says CSV layout uses `w x y z`. Do not blindly bulk-trust mirrored CSVs without correcting/validating quaternion handling and visualizing one mirrored clip.
+- Prior group definitions for the new csv_clips comparison:
+  - `exp5_group1_all_csv_clips`: all `datasets/csv_clips/*.csv`.
+  - `exp5_group2_no_stop`: all `datasets/csv_clips/*.csv` except names matching `*stop*.csv` (`stop_static`, `stop2`, etc.).
+  - `exp5_group3_no_stop2`: all `datasets/csv_clips/*.csv` except names matching `*stop2*.csv`; keeps `stop_static.csv`.
+  - `exp5_group4_dir_back_forward_walk`: `low_dir_back*.csv` from `datasets/csv_clips` plus `datasets/csv/forward/g1_walk.csv` by default.
+- Experiment 5 prior script writes NPZ to `datasets/npz/exp5/<group_name>` and final prior checkpoints to `datasets/pretrain_ckpt/<group_name>.pt`.
+- Experiment 5 policy script uses original `Smp-Steering-G1` and W&B experiment name `smp_exp5_steering_prior_compare`.

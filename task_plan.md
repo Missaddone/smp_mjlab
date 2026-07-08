@@ -6,8 +6,8 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 ## Current Phase
 - Status: in progress
 - Branch: reconstruct
-- Current experiment: Experiment 6 forward stop command ablations
-- Task under construction: forward stop-prior command sampling variants groups 7-12
+- Current experiment: Experiment 5 steering prior comparison
+- Task under construction: csv_clips-based prior groups 1-4 and original steering policy training
 
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
@@ -41,3 +41,6 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - Experiment 6 now has forward command groups 4-12 registered under `Smp-Forward-Exp6-Group{4..12}-G1`.
 - Experiment 5 must use original master-style `Smp-Steering-G1` command/reward/observation; only prior should differ.
 - Experiment 5 speed sampling is the original steering config: `tar_speed_min=0.5`, `tar_speed_max=2.0`, random target direction and random face direction.
+- Experiment 5 scripts:
+  - `scripts/run_exp5_prepare_priors.sh` prepares CSV subsets, converts to NPZ, pretrains priors, and copies final pt files into `datasets/pretrain_ckpt/`.
+  - `scripts/run_exp5_policy_groups1_4.sh` trains original `Smp-Steering-G1` with only `ckpt-path` changed per group.

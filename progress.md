@@ -60,6 +60,12 @@
 - Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering tests/test_forward_exp6_task.py`.
 - Note: `ruff` was not used on the bash script because it treats `.sh` as Python and reports expected syntax errors.
 - Current user-message counter since this refresh: 2.
+- Logged the Experiment 5 csv_clips prior-comparison request to Notion.
+- Added `scripts/run_exp5_prepare_priors.sh` for group1-4 CSV subset assembly, CSV->NPZ conversion, prior pretraining, and checkpoint copy to `datasets/pretrain_ckpt`.
+- Added `scripts/run_exp5_policy_groups1_4.sh` for original `Smp-Steering-G1` policy training with the four exp5 prior checkpoints.
+- Verified `bash -n scripts/run_exp5_prepare_priors.sh` and `bash -n scripts/run_exp5_policy_groups1_4.sh`.
+- Tightened group4 dir-back matching to avoid accidental inclusion of `low_no_dir_back*` and `low_nodir_back*`.
+- Current user-message counter since this refresh: 3.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`
