@@ -70,6 +70,17 @@
 - Updated `scripts/run_exp5_prepare_priors.sh` so each group first stages raw CSVs, then runs `scripts/mirror_motion_data.py --include-original --csv --no-npz`, then converts the combined original+mirror directory to NPZ and pretrains.
 - Verified `bash -n scripts/run_exp5_prepare_priors.sh`.
 - Current user-message counter since this refresh: 4.
+- Logged the Experiment 5 W&B play-script request to Notion.
+- Added `scripts/play_exp5_groups1_4_wandb.sh` using original `Smp-Steering-G1`, EGL video recording, and four W&B run path environment variables.
+- Verified `bash -n scripts/play_exp5_groups1_4_wandb.sh`.
+- Current user-message counter since this refresh: 5.
+- Logged the Experiment 6 group7-12 positional-argument play-script request to Notion.
+- Added `scripts/play_exp6_groups7_12_wandb.sh`; initial version accepted six positional W&B run paths plus optional `--gpu`, `--num-envs`, and `--video-length`.
+- Verified `bash -n scripts/play_exp6_groups7_12_wandb.sh` and `bash scripts/play_exp6_groups7_12_wandb.sh --help`.
+- Current user-message counter since this refresh: 6. Refresh planning files before/after the next substantial task.
+- Logged the correction that Experiment 6 play should run only one requested group at a time.
+- Updated `scripts/play_exp6_groups7_12_wandb.sh` to accept exactly `<group_number> <wandb_run_path>` plus optional `--gpu`, `--num-envs`, and `--video-length`.
+- Re-verified `bash -n scripts/play_exp6_groups7_12_wandb.sh` and `bash scripts/play_exp6_groups7_12_wandb.sh --help`.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

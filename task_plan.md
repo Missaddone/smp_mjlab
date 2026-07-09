@@ -39,8 +39,11 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - If user asks to run training, use W&B and keep command/prior consistent with the current env cfg.
 - Experiment 4 was recorded to Notion flow record as item `4`; user still needs to fill actual effect.
 - Experiment 6 now has forward command groups 4-12 registered under `Smp-Forward-Exp6-Group{4..12}-G1`.
+- Experiment 6 play script:
+  - `scripts/play_exp6_groups7_12_wandb.sh` plays one requested group from positional arguments: `<group_number> <wandb_run_path>`; no `export` is required.
 - Experiment 5 must use original master-style `Smp-Steering-G1` command/reward/observation; only prior should differ.
 - Experiment 5 speed sampling is the original steering config: `tar_speed_min=0.5`, `tar_speed_max=2.0`, random target direction and random face direction.
 - Experiment 5 scripts:
   - `scripts/run_exp5_prepare_priors.sh` prepares CSV subsets, mirrors each subset with originals included, converts the combined original+mirror CSVs to NPZ, pretrains priors, and copies final pt files into `datasets/pretrain_ckpt/`.
   - `scripts/run_exp5_policy_groups1_4.sh` trains original `Smp-Steering-G1` with only `ckpt-path` changed per group.
+  - `scripts/play_exp5_groups1_4_wandb.sh` plays the four original `Smp-Steering-G1` exp5 policy runs from W&B run paths.
