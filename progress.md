@@ -81,6 +81,14 @@
 - Logged the correction that Experiment 6 play should run only one requested group at a time.
 - Updated `scripts/play_exp6_groups7_12_wandb.sh` to accept exactly `<group_number> <wandb_run_path>` plus optional `--gpu`, `--num-envs`, and `--video-length`.
 - Re-verified `bash -n scripts/play_exp6_groups7_12_wandb.sh` and `bash scripts/play_exp6_groups7_12_wandb.sh --help`.
+- Logged the Experiment 6 group13/group14 prior-isolation request to Notion.
+- Added `src/smp/rl/tasks/steering/forward_exp6_group13_env_cfg.py` and `forward_exp6_group14_env_cfg.py`.
+- Registered group13/group14 in `src/smp/rl/tasks/steering/__init__.py`.
+- Added `scripts/run_exp6_prepare_forward_stop_all_prior.sh` to mirror `datasets/csv/forward/stop_static.csv`, assemble 8 forward CSV actions, convert to NPZ, pretrain `forward_stop_all`, and copy `datasets/pretrain_ckpt/forward_stop_all.pt`.
+- Added `scripts/run_exp6_groups13_14_forward_stop_all.sh` to train group13/group14 with `forward_stop_all.pt`.
+- Verification passed: `bash -n scripts/run_exp6_prepare_forward_stop_all_prior.sh scripts/run_exp6_groups13_14_forward_stop_all.sh`.
+- Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering/forward_exp6_group13_env_cfg.py src/smp/rl/tasks/steering/forward_exp6_group14_env_cfg.py src/smp/rl/tasks/steering/__init__.py`.
+- Verification passed: local Python check printed group13 command as group8 and group14 command as group11.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

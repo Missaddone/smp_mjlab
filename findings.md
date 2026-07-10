@@ -73,8 +73,12 @@
 - Registered `Smp-Forward-Exp6-Group10-G1`: `P(v=0)=0.3`, `P(v~Uniform(0,1.5))=0.35`, `P(v~Uniform(1.5,5))=0.35`.
 - Registered `Smp-Forward-Exp6-Group11-G1`: `P(v=0)=0.4`, `P(v~Uniform(0,1.5))=0.3`, `P(v~Uniform(1.5,5))=0.3`.
 - Registered `Smp-Forward-Exp6-Group12-G1`: `P(v=0)=0.5`, `P(v~Uniform(0,1.5))=0.25`, `P(v~Uniform(1.5,5))=0.25`.
+- Registered `Smp-Forward-Exp6-Group13-G1`: same command config as group8, intended to use `forward_stop_all.pt`.
+- Registered `Smp-Forward-Exp6-Group14-G1`: same command config as group11, intended to use `forward_stop_all.pt`.
 - Reward, prior default, observations, terminations, target/facing direction behavior all inherit from original forward config unless CLI overrides change ckpt path.
 - Direct bash runner for groups 7-12: `scripts/run_exp6_groups7_12.sh`; it overrides prior to `datasets/pretrain_ckpt/pretrained_forward_stop.pt`.
+- `forward_stop_all` prior uses 8 forward actions: walk/jog/run and their mirrors, plus `stop_static.csv` and generated `stop_static_mirror.csv`.
+- `scripts/run_exp6_prepare_forward_stop_all_prior.sh` stages those 8 CSVs, converts to NPZ under `datasets/npz/exp6/forward_stop_all`, pretrains with the standard 10000 epoch/2-layer/no-EMA/d_model=128 setup, and copies `forward_stop_all.pt` into `datasets/pretrain_ckpt/`.
 
 ## Experiment 5 Steering Prior
 - Goal: train/evaluate a prior for multi-direction walking without high speed; keep original `Smp-Steering-G1` command/reward/observation exactly aligned with `master`.

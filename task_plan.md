@@ -38,7 +38,12 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - ONNX export script now exists at `scripts/export_onnx_9999.sh`.
 - If user asks to run training, use W&B and keep command/prior consistent with the current env cfg.
 - Experiment 4 was recorded to Notion flow record as item `4`; user still needs to fill actual effect.
-- Experiment 6 now has forward command groups 4-12 registered under `Smp-Forward-Exp6-Group{4..12}-G1`.
+- Experiment 6 now has forward command groups 4-14 registered under `Smp-Forward-Exp6-Group{4..14}-G1`.
+- Experiment 6 group13/group14 are prior-isolation checks:
+  - group13 reuses group8 command config and changes prior to `datasets/pretrain_ckpt/forward_stop_all.pt`.
+  - group14 reuses group11 command config and changes prior to `datasets/pretrain_ckpt/forward_stop_all.pt`.
+- Experiment 6 `forward_stop_all` prior script: `scripts/run_exp6_prepare_forward_stop_all_prior.sh`.
+- Experiment 6 group13/14 training script: `scripts/run_exp6_groups13_14_forward_stop_all.sh`.
 - Experiment 6 play script:
   - `scripts/play_exp6_groups7_12_wandb.sh` plays one requested group from positional arguments: `<group_number> <wandb_run_path>`; no `export` is required.
 - Experiment 5 must use original master-style `Smp-Steering-G1` command/reward/observation; only prior should differ.
