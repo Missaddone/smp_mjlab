@@ -80,6 +80,27 @@
 - `forward_stop_all` prior uses 8 forward actions: walk/jog/run and their mirrors, plus `stop_static.csv` and generated `stop_static_mirror.csv`.
 - `scripts/run_exp6_prepare_forward_stop_all_prior.sh` stages those 8 CSVs, converts to NPZ under `datasets/npz/exp6/forward_stop_all`, pretrains with the standard 10000 epoch/2-layer/no-EMA/d_model=128 setup, and copies `forward_stop_all.pt` into `datasets/pretrain_ckpt/`.
 
+## Experiment 7 Forward Standstill Rewards
+- Goal: make forward policy stop from walk/run by adding standstill reward terms on top of Experiment 6 group7 command sampling.
+- Shared command config for all groups: forward-only target direction, `tar_speed_min=0.0`, `tar_speed_max=5.0`, `zero_speed_prob=0.3`, no random target direction.
+- Shared prior override in the training script: `datasets/pretrain_ckpt/pretrained_forward_stop.pt`.
+- Shared base reward term: `1.0 * steering_target_velocity(command_name="steering", vel_err_scale=0.5)`, still wrapped by `task_smp_product`.
+- Standstill mask: `||tar_speed * tar_dir_w|| <= 0.2`.
+- `stand_still_exp`: `exp(-sum(abs(q - q_default))) * standstill_mask`, with `q_default` loaded from first row, columns 7:36 of `datasets/csv/forward/stop_static.csv`.
+- `stand_still_vel`: positive penalty `sum(abs(qd)) * standstill_mask`; env-cfg uses negative weights.
+- `stand_still_feet_motion_penalty`: positive penalty `sum(||v_foot||) * standstill_mask` over `left_ankle_roll_link` and `right_ankle_roll_link`; env-cfg uses negative weights.
+- `stand_still_double_support`: reward `1` when both left and right foot collision geoms have vertical net contact force over `2.0` while standstill mask is active.
+- Group order:
+  - group1-3: `stand_still_exp`, weights `2.0`, `5.0`, `7.0`.
+  - group4-6: `stand_still_vel`, weights `-0.02`, `-0.05`, `-0.10`.
+  - group7-9: `stand_still_feet_motion_penalty`, weights `-0.2`, `-0.5`, `-1.0`.
+  - group10-12: `stand_still_double_support`, weights `0.25`, `0.5`, `1.0`.
+- Code locations:
+  - reward functions: `src/smp/rl/tasks/steering/mdp/rewards.py`.
+  - exp7 cfg table/builders: `src/smp/rl/tasks/steering/forward_exp7_env_cfg.py`.
+  - task registration: `src/smp/rl/tasks/steering/__init__.py`.
+  - training script: `scripts/run_exp7_standstill_rewards.sh`.
+
 ## Experiment 5 Steering Prior
 - Goal: train/evaluate a prior for multi-direction walking without high speed; keep original `Smp-Steering-G1` command/reward/observation exactly aligned with `master`.
 - `src/smp/rl/tasks/steering/steering_env_cfg.py` matches `master` for `Smp-Steering-G1`.

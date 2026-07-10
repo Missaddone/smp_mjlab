@@ -6,8 +6,8 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 ## Current Phase
 - Status: in progress
 - Branch: reconstruct
-- Current experiment: Experiment 5 steering prior comparison
-- Task under construction: csv_clips-based prior groups 1-4 and original steering policy training
+- Current experiment: Experiment 7 forward standstill reward
+- Task under construction: exp6 group7 command plus standstill reward ablations
 
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
@@ -52,3 +52,11 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - `scripts/run_exp5_prepare_priors.sh` prepares CSV subsets, mirrors each subset with originals included, converts the combined original+mirror CSVs to NPZ, pretrains priors, and copies final pt files into `datasets/pretrain_ckpt/`.
   - `scripts/run_exp5_policy_groups1_4.sh` trains original `Smp-Steering-G1` with only `ckpt-path` changed per group.
   - `scripts/play_exp5_groups1_4_wandb.sh` plays the four original `Smp-Steering-G1` exp5 policy runs from W&B run paths.
+- Experiment 7 uses Experiment 6 group7 command as the base:
+  - command: forward-only `target_speed`, `tar_speed_min=0.0`, `tar_speed_max=5.0`, `zero_speed_prob=0.3`.
+  - prior override in training script: `datasets/pretrain_ckpt/pretrained_forward_stop.pt`.
+  - base reward remains `task_smp_product` with `1.0 * steering_target_velocity(vel_err_scale=0.5)`.
+  - standstill is active when `||target_speed * target_dir|| <= 0.2`.
+  - default stand pose for `stand_still_exp` comes from first row joint columns of `datasets/csv/forward/stop_static.csv`.
+  - registered task ids: `Smp-Forward-Exp7-Group1-G1` through `Smp-Forward-Exp7-Group12-G1`.
+  - training script: `scripts/run_exp7_standstill_rewards.sh`.

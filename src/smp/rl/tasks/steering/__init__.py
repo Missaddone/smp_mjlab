@@ -38,6 +38,7 @@ from smp.rl.tasks.steering.forward_exp6_group13_env_cfg import (
 from smp.rl.tasks.steering.forward_exp6_group14_env_cfg import (
   g1_forward_exp6_group14_smp_env_cfg,
 )
+from smp.rl.tasks.steering.forward_exp7_env_cfg import EXP7_FORWARD_BUILDERS
 from smp.rl.tasks.steering.steering_env_cfg import g1_steering_smp_env_cfg
 
 _steering_rl = unitree_g1_smp_ppo_runner_cfg()
@@ -87,7 +88,19 @@ for _group, _env_builder in _EXP6_FORWARD_GROUPS:
     rl_cfg=_rl,
   )
 
+for _group, _env_builder, _spec in EXP7_FORWARD_BUILDERS:
+  _rl = unitree_g1_smp_ppo_runner_cfg()
+  _rl.experiment_name = "smp_exp7_forward_stop_standstill_reward"
+  _rl.run_name = _spec.run_name
+  register_mjlab_task(
+    task_id=f"Smp-Forward-Exp7-Group{_group}-G1",
+    env_cfg=_env_builder(play=False),
+    play_env_cfg=_env_builder(play=True),
+    rl_cfg=_rl,
+  )
+
 __all__ = [
+  "EXP7_FORWARD_BUILDERS",
   "g1_forward_exp6_group4_smp_env_cfg",
   "g1_forward_exp6_group5_smp_env_cfg",
   "g1_forward_exp6_group6_smp_env_cfg",

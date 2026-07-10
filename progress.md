@@ -89,6 +89,15 @@
 - Verification passed: `bash -n scripts/run_exp6_prepare_forward_stop_all_prior.sh scripts/run_exp6_groups13_14_forward_stop_all.sh`.
 - Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering/forward_exp6_group13_env_cfg.py src/smp/rl/tasks/steering/forward_exp6_group14_env_cfg.py src/smp/rl/tasks/steering/__init__.py`.
 - Verification passed: local Python check printed group13 command as group8 and group14 command as group11.
+- Logged the Experiment 7 forward standstill reward request to Notion by appending a row to the final existing table.
+- Added four standstill reward functions in `src/smp/rl/tasks/steering/mdp/rewards.py`: `stand_still_exp`, `stand_still_vel`, `stand_still_feet_motion_penalty`, and `stand_still_double_support`.
+- Added `src/smp/rl/tasks/steering/forward_exp7_env_cfg.py` with 12 ordered ablation groups based on Experiment 6 group7 command config.
+- Registered `Smp-Forward-Exp7-Group1-G1` through `Smp-Forward-Exp7-Group12-G1`.
+- Added `scripts/run_exp7_standstill_rewards.sh` with direct W&B training commands for all 12 groups.
+- Verification passed: `bash -n scripts/run_exp7_standstill_rewards.sh`.
+- Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering/mdp/rewards.py src/smp/rl/tasks/steering/forward_exp7_env_cfg.py src/smp/rl/tasks/steering/__init__.py`.
+- Verification passed: local Python check confirmed all 12 groups use `tar_speed_min=0.0`, `tar_speed_max=5.0`, `zero_speed_prob=0.3`; only group10-12 attach the extra foot contact sensor.
+- Current user-message counter since this refresh: 0.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`
