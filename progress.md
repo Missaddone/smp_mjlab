@@ -98,6 +98,11 @@
 - Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering/mdp/rewards.py src/smp/rl/tasks/steering/forward_exp7_env_cfg.py src/smp/rl/tasks/steering/__init__.py`.
 - Verification passed: local Python check confirmed all 12 groups use `tar_speed_min=0.0`, `tar_speed_max=5.0`, `zero_speed_prob=0.3`; only group10-12 attach the extra foot contact sensor.
 - Current user-message counter since this refresh: 0.
+- Logged the Experiment 7 play-script request to Notion.
+- Added `scripts/play_exp7_groups1_12_wandb.sh`; it plays one requested group from positional arguments: `<group_number> <wandb_run_path>`, with optional `--gpu`, `--num-envs`, and `--video-length`.
+- Verification passed: `bash -n scripts/play_exp7_groups1_12_wandb.sh`.
+- Verification passed: `bash scripts/play_exp7_groups1_12_wandb.sh --help`.
+- Current user-message counter since this refresh: 1.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`
