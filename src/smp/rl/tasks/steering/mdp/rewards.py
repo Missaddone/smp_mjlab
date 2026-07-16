@@ -154,3 +154,122 @@ def stand_still_double_support(
   right_contact = contact_values[:, right_ids].any(dim=-1)
   reward = (left_contact & right_contact).to(dtype=torch.float32)
   return reward * _standstill_mask(env, command_name, zero_threshold).to(reward.dtype)
+
+
+def forward_stop_joint_vel_gate_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 0.5,
+  zero_threshold: float = 0.2,
+  joint_vel_exp_scale: float = 0.02,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp9 reward B: keep velocity tracking outside stop, gate it by joint stillness
+  when the command asks for stop."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  return r_vel * ((1.0 - still) + still * r_joint_vel)
+
+
+def forward_stop_switch_sum_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 0.5,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  root_stop_weight: float = 0.6,
+  joint_vel_weight: float = 0.4,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp9 reward C: normal tracking when moving; weighted root-stop/joint-still
+  reward when stopping."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  r_stop = root_stop_weight * r_root_stop + joint_vel_weight * r_joint_vel
+  return (1.0 - still) * r_vel + still * r_stop
+
+
+def forward_stop_switch_product_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 0.5,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp9 reward D: normal tracking when moving; product root-stop and joint-still
+  reward when stopping."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  return (1.0 - still) * r_vel + still * (r_root_stop * r_joint_vel)
+
+
+def forward_stop_switch_mix_product_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 0.5,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  product_weight: float = 0.6,
+  root_stop_weight: float = 0.2,
+  joint_vel_weight: float = 0.2,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp9 reward E: normal tracking when moving; product-plus-marginals stop
+  reward when stopping."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  r_stop = (
+    product_weight * r_root_stop * r_joint_vel
+    + root_stop_weight * r_root_stop
+    + joint_vel_weight * r_joint_vel
+  )
+  return (1.0 - still) * r_vel + still * r_stop

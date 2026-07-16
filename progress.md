@@ -103,6 +103,34 @@
 - Verification passed: `bash -n scripts/play_exp7_groups1_12_wandb.sh`.
 - Verification passed: `bash scripts/play_exp7_groups1_12_wandb.sh --help`.
 - Current user-message counter since this refresh: 1.
+- Logged the Experiment 9 prior/reward-grid request to Notion.
+- Checked `datasets/csv/forward/stop_static.csv`: 36 columns, no explicit velocity columns, adjacent-frame max diff `0.0`; no CSV edit needed.
+- Added Exp9 reward helper functions in `src/smp/rl/tasks/steering/mdp/rewards.py` for reward B/C/D/E; reward A reuses Exp7-G4 style terms.
+- Added `src/smp/rl/tasks/steering/forward_exp9_env_cfg.py` and registered `Smp-Forward-Exp9-Group1-G1` through `Smp-Forward-Exp9-Group15-G1`.
+- Added `experiment_9_plan.md` with the 3 prior x 5 reward experiment table and formulas.
+- Added `scripts/run_exp9_prepare_priors.sh` for P1/P2/P3 CSV staging, CSV->NPZ, diffusion pretraining, and checkpoint copying.
+- Added `scripts/run_exp9_policy_groups1_15.sh` with direct W&B training commands for 15 policy runs.
+- Verification passed: `bash -n scripts/run_exp9_prepare_priors.sh scripts/run_exp9_policy_groups1_15.sh`.
+- Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering/mdp/rewards.py src/smp/rl/tasks/steering/forward_exp9_env_cfg.py src/smp/rl/tasks/steering/__init__.py`.
+- Verification passed: local Python check confirmed all 15 groups build with `tar_speed_min=0.0`, `tar_speed_max=5.0`, `zero_speed_prob=0.3`, expected prior paths, and expected reward keys.
+- Current user-message counter since this refresh: 2.
+- Logged the Experiment 9 mirror/P4 supplement request to Notion in the existing final table.
+- Updated `scripts/run_exp9_prepare_priors.sh` so every staged prior combination auto-generates missing mirror CSVs for non-mirror actions, while existing forward mirror files are left alone.
+- Added P4 `exp9_prior4_forward_stop_static.pt`: original forward six CSVs + `stop_static.csv`.
+- Expanded `src/smp/rl/tasks/steering/forward_exp9_env_cfg.py` to 4 priors x 5 rewards, registering `Smp-Forward-Exp9-Group1-G1` through `Smp-Forward-Exp9-Group20-G1`.
+- Renamed/expanded the policy runner to `scripts/run_exp9_policy_groups1_20.sh` and added group16-20 commands.
+- Updated `experiment_9_plan.md` with P4, mirror generation behavior, and the 20-group table.
+- Verification passed: `bash -n scripts/run_exp9_prepare_priors.sh scripts/run_exp9_policy_groups1_20.sh`.
+- Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering/mdp/rewards.py src/smp/rl/tasks/steering/forward_exp9_env_cfg.py src/smp/rl/tasks/steering/__init__.py`.
+- Verification passed: local Python check confirmed all 20 groups build with `tar_speed_min=0.0`, `tar_speed_max=5.0`, `zero_speed_prob=0.3`, expected prior paths, and expected reward keys.
+- Verification passed: `git diff --check`.
+- Current user-message counter since this refresh: 3.
+- Logged the Experiment 8 W&B play question to Notion.
+- Replaced `scripts/run_exp9_policy_groups1_20.sh` with a single-group runner that accepts `<group> <gpu>` and launches exactly one foreground training command.
+- Updated `experiment_9_plan.md` and `findings.md` with the new command format.
+- Verification passed: `bash -n scripts/run_exp9_policy_groups1_20.sh`.
+- Verification passed: `bash scripts/run_exp9_policy_groups1_20.sh` prints usage and exits before launching training when arguments are missing.
+- Current user-message counter since this refresh: 4.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

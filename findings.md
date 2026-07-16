@@ -101,6 +101,33 @@
   - task registration: `src/smp/rl/tasks/steering/__init__.py`.
   - training script: `scripts/run_exp7_standstill_rewards.sh`.
 
+## Experiment 9 Prior/Reward Grid
+- Goal: continue the Experiment 7 forward-stop scene while comparing prior data composition and revised stop reward formulas.
+- Shared command config: Experiment 6 group7 forward-only command, `tar_speed_min=0.0`, `tar_speed_max=5.0`, `zero_speed_prob=0.3`.
+- `datasets/csv/forward/stop_static.csv` has 36 standard CSV columns only: `root_pos(3), root_quat_xyzw(4), joint_pos(29)`. It has no explicit body or joint velocity columns. Adjacent-frame max difference across all columns was `0.0`, so CSV->NPZ should produce zero velocities for the static clip.
+- Prior combinations:
+  - P1 `exp9_prior1_forward_walk_to_stop.pt`: original forward six CSVs + `walk_to_stop.csv`/`w_2_s.csv`.
+  - P2 `exp9_prior2_forward_w2s_s2w.pt`: P1 + `stop_to_walk.csv`/`s_2_w.csv`.
+  - P3 `exp9_prior3_forward_w2s_s2w_stop_static.pt`: P2 + `stop_static.csv`.
+  - P4 `exp9_prior4_forward_stop_static.pt`: original forward six CSVs + `stop_static.csv`.
+- Prior preparation mirror rule: after staging each raw prior combination, `scripts/run_exp9_prepare_priors.sh` checks every non-`_mirror.csv` action and auto-generates the missing matching `_mirror.csv` via `scripts/mirror_motion_data.py`; existing forward mirror files are skipped.
+- Reward versions:
+  - A: Exp7-G4 baseline, `r_task = r_vel - 0.02 * m_still * sum(|qdot|)`.
+  - B: `r_task = r_vel * ((1-m_still) + m_still*r_joint_vel)`, `r_joint_vel=exp(-0.02*sum(|qdot|))`.
+  - C: moving uses `r_vel`; stopping uses `0.6*r_root_stop + 0.4*r_joint_vel`.
+  - D: moving uses `r_vel`; stopping uses `r_root_stop*r_joint_vel`.
+  - E: moving uses `r_vel`; stopping uses `0.6*r_root_stop*r_joint_vel + 0.2*r_root_stop + 0.2*r_joint_vel`.
+  - `r_root_stop=exp(-2.0*||v_root_xy||^2)`, `m_still = 1[||v_cmd|| <= 0.2]`.
+- Registered task ids: `Smp-Forward-Exp9-Group1-G1` through `Smp-Forward-Exp9-Group20-G1`.
+- Group mapping: group1-5 = P1 with reward A-E; group6-10 = P2 with reward A-E; group11-15 = P3 with reward A-E; group16-20 = P4 with reward A-E.
+- Code locations:
+  - new task reward helpers: `src/smp/rl/tasks/steering/mdp/rewards.py`.
+  - exp9 cfg table/builders: `src/smp/rl/tasks/steering/forward_exp9_env_cfg.py`.
+  - task registration: `src/smp/rl/tasks/steering/__init__.py`.
+  - plan doc: `experiment_9_plan.md`.
+  - prior script: `scripts/run_exp9_prepare_priors.sh`.
+  - policy script: `scripts/run_exp9_policy_groups1_20.sh`; run one group at a time as `bash scripts/run_exp9_policy_groups1_20.sh <group> <gpu>`.
+
 ## Experiment 5 Steering Prior
 - Goal: train/evaluate a prior for multi-direction walking without high speed; keep original `Smp-Steering-G1` command/reward/observation exactly aligned with `master`.
 - `src/smp/rl/tasks/steering/steering_env_cfg.py` matches `master` for `Smp-Steering-G1`.

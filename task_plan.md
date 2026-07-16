@@ -6,8 +6,8 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 ## Current Phase
 - Status: in progress
 - Branch: reconstruct
-- Current experiment: Experiment 7 forward standstill reward
-- Task under construction: exp6 group7 command plus standstill reward ablations
+- Current experiment: Experiment 9 forward stop prior/reward grid
+- Task under construction: compare forward-stop prior compositions and stop reward formulas
 
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
