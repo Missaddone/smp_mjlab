@@ -7,7 +7,7 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - Status: in progress
 - Branch: reconstruct
 - Current experiment: Experiment 9 forward stop prior/reward grid
-- Task under construction: compare forward-stop prior compositions and stop reward formulas
+- Task under construction: extend Exp9 from groups 1-20 to groups 1-33 with anti-jitter stop rewards, dead-zone command variants, and low-speed prior5 support
 
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
@@ -60,3 +60,15 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - default stand pose for `stand_still_exp` comes from first row joint columns of `datasets/csv/forward/stop_static.csv`.
   - registered task ids: `Smp-Forward-Exp7-Group1-G1` through `Smp-Forward-Exp7-Group12-G1`.
   - training script: `scripts/run_exp7_standstill_rewards.sh`.
+- Experiment 9 now has registered task ids `Smp-Forward-Exp9-Group1-G1` through `Smp-Forward-Exp9-Group33-G1`.
+- Experiment 9 group21-26 extend the current best P4 prior:
+  - group21: P4 + stop product + root roll/pitch angular velocity damping.
+  - group22: P4 + stop product + upper-body joint velocity damping.
+  - group23: P4 + stop product + action smoothness.
+  - group24-26 repeat group21-23 with command dead zone `dead_zone_speed=1.0`.
+- Experiment 9 group27-32 repeat group21-26 with P5 prior `datasets/pretrain_ckpt/exp9_prior5_forward_stop_static_low_walk.pt`.
+- Experiment 9 group33 is P5 + group19-style stop-product baseline for isolating the low-speed prior effect.
+- Experiment 9 scripts:
+  - `scripts/run_exp9_prepare_priors.sh prior5` builds only the low-speed prior after `datasets/csv/forward/g1_low_walk.csv` is added.
+  - `scripts/run_exp9_policy_groups1_33.sh <group> <gpu>` runs one foreground W&B training job.
+  - `scripts/play_exp9_groups1_33_wandb.sh [--gpu N] <group> <wandb_run_path>` plays one W&B checkpoint with EGL video.

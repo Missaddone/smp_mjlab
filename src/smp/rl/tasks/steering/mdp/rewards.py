@@ -20,6 +20,15 @@ _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
 _DEFAULT_FEET_ASSET_CFG = SceneEntityCfg(
   "robot", body_names=("left_ankle_roll_link", "right_ankle_roll_link")
 )
+_DEFAULT_UPPER_BODY_ASSET_CFG = SceneEntityCfg(
+  "robot",
+  joint_names=(
+    r"waist_.*_joint",
+    r".*shoulder.*_joint",
+    r".*elbow.*_joint",
+    r".*wrist.*_joint",
+  ),
+)
 
 
 def steering_target_velocity(
@@ -273,3 +282,106 @@ def forward_stop_switch_mix_product_task(
     + joint_vel_weight * r_joint_vel
   )
   return (1.0 - still) * r_vel + still * r_stop
+
+
+def forward_stop_product_root_ang_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 0.5,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  root_ang_exp_scale: float = 1.0,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp9 extension: group19 stop product plus root roll/pitch angular stillness."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  r_root_ang = torch.exp(
+    -root_ang_exp_scale * (asset.data.root_link_ang_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  return (1.0 - still) * r_vel + still * (r_root_stop * r_joint_vel * r_root_ang)
+
+
+def forward_stop_product_upper_body_joint_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 0.5,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  upper_joint_vel_exp_scale: float = 0.05,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+  upper_asset_cfg: SceneEntityCfg = _DEFAULT_UPPER_BODY_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp9 extension: group19 stop product plus upper-body joint stillness."""
+  asset = env.scene[asset_cfg.name]
+  upper_asset = env.scene[upper_asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  upper_joint_vel = upper_asset.data.joint_vel[:, upper_asset_cfg.joint_ids]
+  r_upper_joint_vel = torch.exp(
+    -upper_joint_vel_exp_scale * torch.abs(upper_joint_vel).sum(dim=-1)
+  )
+  return (
+    (1.0 - still) * r_vel
+    + still * (r_root_stop * r_joint_vel * r_upper_joint_vel)
+  )
+
+
+def forward_stop_product_action_smooth_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 0.5,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  action_smooth_exp_scale: float = 0.25,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp9 extension: group19 stop product plus raw-policy action smoothness."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  action_delta = env.action_manager.action - env.action_manager.prev_action
+  r_action_smooth = torch.exp(
+    -action_smooth_exp_scale * (action_delta**2).sum(dim=-1)
+  )
+  return (
+    (1.0 - still) * r_vel
+    + still * (r_root_stop * r_joint_vel * r_action_smooth)
+  )

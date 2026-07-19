@@ -18,6 +18,10 @@ _ZERO_THRESHOLD = 0.2
 _VEL_ERR_SCALE = 0.5
 _ROOT_VEL_EXP_SCALE = 2.0
 _JOINT_VEL_EXP_SCALE = 0.02
+_ROOT_ANG_EXP_SCALE = 1.0
+_UPPER_JOINT_VEL_EXP_SCALE = 0.05
+_ACTION_SMOOTH_EXP_SCALE = 0.25
+_DEAD_ZONE_SPEED = 1.0
 
 
 @dataclass(frozen=True)
@@ -42,6 +46,7 @@ class Exp9GroupSpec:
   prior: Exp9PriorSpec
   reward: Exp9RewardSpec
   run_name: str
+  dead_zone_speed: float = 0.0
 
 
 EXP9_PRIORS: tuple[Exp9PriorSpec, ...] = (
@@ -69,6 +74,13 @@ EXP9_PRIORS: tuple[Exp9PriorSpec, ...] = (
     ckpt_path="datasets/pretrain_ckpt/exp9_prior4_forward_stop_static.pt",
     summary="forward + stop_static",
   ),
+)
+
+EXP9_PRIOR5 = Exp9PriorSpec(
+  index=5,
+  name="forward_stop_static_low_walk",
+  ckpt_path="datasets/pretrain_ckpt/exp9_prior5_forward_stop_static_low_walk.pt",
+  summary="forward + stop_static + g1_low_walk",
 )
 
 
@@ -180,8 +192,77 @@ EXP9_REWARDS: tuple[Exp9RewardSpec, ...] = (
   ),
 )
 
+EXP9_REWARD_ROOT_ANG = Exp9RewardSpec(
+  key="F",
+  name="stop_product_root_ang",
+  summary=(
+    "F: moving uses r_vel; stopping uses "
+    "r_root_stop * r_joint_vel * r_root_ang"
+  ),
+  task_terms=(
+    (
+      mdp.forward_stop_product_root_ang_task,
+      1.0,
+      {
+        "command_name": "steering",
+        "vel_err_scale": _VEL_ERR_SCALE,
+        "zero_threshold": _ZERO_THRESHOLD,
+        "root_vel_exp_scale": _ROOT_VEL_EXP_SCALE,
+        "joint_vel_exp_scale": _JOINT_VEL_EXP_SCALE,
+        "root_ang_exp_scale": _ROOT_ANG_EXP_SCALE,
+      },
+    ),
+  ),
+)
 
-EXP9_GROUP_SPECS: tuple[Exp9GroupSpec, ...] = tuple(
+EXP9_REWARD_UPPER_BODY = Exp9RewardSpec(
+  key="G",
+  name="stop_product_upper_body",
+  summary=(
+    "G: moving uses r_vel; stopping uses "
+    "r_root_stop * r_joint_vel * r_upper_joint_vel"
+  ),
+  task_terms=(
+    (
+      mdp.forward_stop_product_upper_body_joint_task,
+      1.0,
+      {
+        "command_name": "steering",
+        "vel_err_scale": _VEL_ERR_SCALE,
+        "zero_threshold": _ZERO_THRESHOLD,
+        "root_vel_exp_scale": _ROOT_VEL_EXP_SCALE,
+        "joint_vel_exp_scale": _JOINT_VEL_EXP_SCALE,
+        "upper_joint_vel_exp_scale": _UPPER_JOINT_VEL_EXP_SCALE,
+      },
+    ),
+  ),
+)
+
+EXP9_REWARD_ACTION_SMOOTH = Exp9RewardSpec(
+  key="H",
+  name="stop_product_action_smooth",
+  summary=(
+    "H: moving uses r_vel; stopping uses "
+    "r_root_stop * r_joint_vel * r_action_smooth"
+  ),
+  task_terms=(
+    (
+      mdp.forward_stop_product_action_smooth_task,
+      1.0,
+      {
+        "command_name": "steering",
+        "vel_err_scale": _VEL_ERR_SCALE,
+        "zero_threshold": _ZERO_THRESHOLD,
+        "root_vel_exp_scale": _ROOT_VEL_EXP_SCALE,
+        "joint_vel_exp_scale": _JOINT_VEL_EXP_SCALE,
+        "action_smooth_exp_scale": _ACTION_SMOOTH_EXP_SCALE,
+      },
+    ),
+  ),
+)
+
+
+_EXP9_BASE_GROUP_SPECS: tuple[Exp9GroupSpec, ...] = tuple(
   Exp9GroupSpec(
     group=(prior_idx * len(EXP9_REWARDS) + reward_idx + 1),
     prior=prior,
@@ -195,9 +276,78 @@ EXP9_GROUP_SPECS: tuple[Exp9GroupSpec, ...] = tuple(
   for reward_idx, reward in enumerate(EXP9_REWARDS)
 )
 
+_P4 = EXP9_PRIORS[3]
+_REWARD_D = EXP9_REWARDS[3]
+_EXP9_EXTRA_GROUP_SPECS: tuple[Exp9GroupSpec, ...] = (
+  Exp9GroupSpec(21, _P4, EXP9_REWARD_ROOT_ANG, "group21_p4_f_root_ang_stop"),
+  Exp9GroupSpec(22, _P4, EXP9_REWARD_UPPER_BODY, "group22_p4_g_upper_body_stop"),
+  Exp9GroupSpec(23, _P4, EXP9_REWARD_ACTION_SMOOTH, "group23_p4_h_action_smooth_stop"),
+  Exp9GroupSpec(
+    24,
+    _P4,
+    EXP9_REWARD_ROOT_ANG,
+    "group24_p4_f_root_ang_stop_dz1",
+    dead_zone_speed=_DEAD_ZONE_SPEED,
+  ),
+  Exp9GroupSpec(
+    25,
+    _P4,
+    EXP9_REWARD_UPPER_BODY,
+    "group25_p4_g_upper_body_stop_dz1",
+    dead_zone_speed=_DEAD_ZONE_SPEED,
+  ),
+  Exp9GroupSpec(
+    26,
+    _P4,
+    EXP9_REWARD_ACTION_SMOOTH,
+    "group26_p4_h_action_smooth_stop_dz1",
+    dead_zone_speed=_DEAD_ZONE_SPEED,
+  ),
+  Exp9GroupSpec(27, EXP9_PRIOR5, EXP9_REWARD_ROOT_ANG, "group27_p5_f_root_ang_stop"),
+  Exp9GroupSpec(28, EXP9_PRIOR5, EXP9_REWARD_UPPER_BODY, "group28_p5_g_upper_body_stop"),
+  Exp9GroupSpec(
+    29,
+    EXP9_PRIOR5,
+    EXP9_REWARD_ACTION_SMOOTH,
+    "group29_p5_h_action_smooth_stop",
+  ),
+  Exp9GroupSpec(
+    30,
+    EXP9_PRIOR5,
+    EXP9_REWARD_ROOT_ANG,
+    "group30_p5_f_root_ang_stop_dz1",
+    dead_zone_speed=_DEAD_ZONE_SPEED,
+  ),
+  Exp9GroupSpec(
+    31,
+    EXP9_PRIOR5,
+    EXP9_REWARD_UPPER_BODY,
+    "group31_p5_g_upper_body_stop_dz1",
+    dead_zone_speed=_DEAD_ZONE_SPEED,
+  ),
+  Exp9GroupSpec(
+    32,
+    EXP9_PRIOR5,
+    EXP9_REWARD_ACTION_SMOOTH,
+    "group32_p5_h_action_smooth_stop_dz1",
+    dead_zone_speed=_DEAD_ZONE_SPEED,
+  ),
+  Exp9GroupSpec(
+    33,
+    EXP9_PRIOR5,
+    _REWARD_D,
+    "group33_p5_d_stop_product_switch_baseline",
+  ),
+)
+
+EXP9_GROUP_SPECS: tuple[Exp9GroupSpec, ...] = (
+  _EXP9_BASE_GROUP_SPECS + _EXP9_EXTRA_GROUP_SPECS
+)
+
 
 def _build_exp9_cfg(spec: Exp9GroupSpec, play: bool = False) -> ManagerBasedRlEnvCfg:
   cfg = g1_forward_exp6_group7_smp_env_cfg(play=play)
+  cfg.commands["steering"].dead_zone_speed = spec.dead_zone_speed
   cfg.events["init_smp_state"].params["ckpt_path"] = spec.prior.ckpt_path
   cfg.rewards["task_smp_product"] = RewardTermCfg(
     func=task_smp_product,

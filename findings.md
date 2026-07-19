@@ -127,6 +127,27 @@
   - plan doc: `experiment_9_plan.md`.
   - prior script: `scripts/run_exp9_prepare_priors.sh`.
   - policy script: `scripts/run_exp9_policy_groups1_20.sh`; run one group at a time as `bash scripts/run_exp9_policy_groups1_20.sh <group> <gpu>`.
+  - play script: `scripts/play_exp9_groups1_20_wandb.sh`; run one group at a time as `bash scripts/play_exp9_groups1_20_wandb.sh [--gpu N] <group> <wandb_run_path>`.
+  - `scripts/play.py` does not accept `--env.events.init-smp-state.params.ckpt-path=...`; Exp9 play must rely on `Smp-Forward-Exp9-Group{n}-G1` task cfg to select the matching prior path.
+- Partial results in `exp9_summary.md` as of 2026-07-17:
+  - Best prior is P4 `forward + stop_static`; adding `stop_to_walk` in P2 is harmful and often collapses motion.
+  - Best current groups are 18/19/20, especially 19/20: normal run/walk plus reduced stop shaking, but with relay behavior and upper-body high-frequency jitter.
+  - "Relay behavior" means starting from rest requires command speed around 2 before normal gait appears; after gait starts, reducing command into 1-2 can keep walking.
+  - Next reward direction should not add command-zero velocity tracking. The static branch should target root angular/vertical stability, upper-body pose/velocity damping, and action/joint-acc smoothness.
+- Exp9 group21-33 extension:
+  - Group21: P4 + reward F, moving uses `r_vel`, stopping uses `r_root_stop * r_joint_vel * r_root_ang`.
+  - Group22: P4 + reward G, moving uses `r_vel`, stopping uses `r_root_stop * r_joint_vel * r_upper_joint_vel`.
+  - Group23: P4 + reward H, moving uses `r_vel`, stopping uses `r_root_stop * r_joint_vel * r_action_smooth`.
+  - Group24-26 repeat group21-23 with command dead zone `dead_zone_speed=1.0`, meaning sampled speeds below `1.0 m/s` are set to zero by the existing steering command sampler.
+  - Group27-32 repeat group21-26 with P5 `exp9_prior5_forward_stop_static_low_walk.pt`.
+  - Group33 is P5 + reward D baseline, matching group19's stop product formulation, so the low-speed prior effect can be isolated.
+  - P5 is staged from the forward base data plus `stop_static.csv` plus `g1_low_walk.csv`; the preparation script still auto-generates missing mirror CSVs for all staged non-mirror clips.
+- Exp9 new reward constants:
+  - `r_root_stop=exp(-2.0*||v_root_xy||^2)`.
+  - `r_joint_vel=exp(-0.02*sum(|qdot|))`.
+  - `r_root_ang=exp(-1.0*||omega_root_xy||^2)`.
+  - `r_upper_joint_vel=exp(-0.05*sum(|qdot_upper|))` over waist, shoulder, elbow, and wrist joints.
+  - `r_action_smooth=exp(-0.25*||a_t-a_{t-1}||^2)`.
 
 ## Experiment 5 Steering Prior
 - Goal: train/evaluate a prior for multi-direction walking without high speed; keep original `Smp-Steering-G1` command/reward/observation exactly aligned with `master`.

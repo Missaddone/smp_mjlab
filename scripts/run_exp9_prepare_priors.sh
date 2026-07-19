@@ -11,6 +11,16 @@ PRETRAIN_SAVE_INTERVAL="${PRETRAIN_SAVE_INTERVAL:-5000}"
 PRETRAIN_D_MODEL="${PRETRAIN_D_MODEL:-128}"
 PRETRAIN_NUM_LAYERS="${PRETRAIN_NUM_LAYERS:-2}"
 
+usage() {
+  cat <<'EOF'
+Usage:
+  bash scripts/run_exp9_prepare_priors.sh [prior1|prior2|prior3|prior4|prior5 ...]
+
+Without arguments, prepares and pretrains all Experiment 9 priors.
+Use `prior5` after adding datasets/csv/forward/g1_low_walk.csv.
+EOF
+}
+
 copy_required() {
   local dest_dir="$1"
   local label="$2"
@@ -132,6 +142,12 @@ prepare_prior_raw() {
       copy_required "$raw_dir" "stop_static" stop_static.csv
       copy_optional "$raw_dir" stop_static_mirror.csv
       ;;
+    stop_static_low_walk)
+      copy_required "$raw_dir" "stop_static" stop_static.csv
+      copy_required "$raw_dir" "g1_low_walk" g1_low_walk.csv
+      copy_optional "$raw_dir" stop_static_mirror.csv
+      copy_optional "$raw_dir" g1_low_walk_mirror.csv
+      ;;
     *)
       echo "[ERROR] Unknown prior mode: $mode" >&2
       exit 1
@@ -183,12 +199,44 @@ if [ ! -d "$FORWARD_CSV_DIR" ]; then
   exit 1
 fi
 
-prepare_prior_raw "exp9_prior1_forward_walk_to_stop" "w2s"
-prepare_prior_raw "exp9_prior2_forward_w2s_s2w" "w2s_s2w"
-prepare_prior_raw "exp9_prior3_forward_w2s_s2w_stop_static" "w2s_s2w_stop_static"
-prepare_prior_raw "exp9_prior4_forward_stop_static" "stop_static"
+run_prior() {
+  local prior="$1"
+  case "$prior" in
+    prior1)
+      prepare_prior_raw "exp9_prior1_forward_walk_to_stop" "w2s"
+      convert_and_pretrain "exp9_prior1_forward_walk_to_stop"
+      ;;
+    prior2)
+      prepare_prior_raw "exp9_prior2_forward_w2s_s2w" "w2s_s2w"
+      convert_and_pretrain "exp9_prior2_forward_w2s_s2w"
+      ;;
+    prior3)
+      prepare_prior_raw "exp9_prior3_forward_w2s_s2w_stop_static" "w2s_s2w_stop_static"
+      convert_and_pretrain "exp9_prior3_forward_w2s_s2w_stop_static"
+      ;;
+    prior4)
+      prepare_prior_raw "exp9_prior4_forward_stop_static" "stop_static"
+      convert_and_pretrain "exp9_prior4_forward_stop_static"
+      ;;
+    prior5)
+      prepare_prior_raw "exp9_prior5_forward_stop_static_low_walk" "stop_static_low_walk"
+      convert_and_pretrain "exp9_prior5_forward_stop_static_low_walk"
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      echo "[ERROR] Unknown prior selector: $prior" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+}
 
-convert_and_pretrain "exp9_prior1_forward_walk_to_stop"
-convert_and_pretrain "exp9_prior2_forward_w2s_s2w"
-convert_and_pretrain "exp9_prior3_forward_w2s_s2w_stop_static"
-convert_and_pretrain "exp9_prior4_forward_stop_static"
+if [ "$#" -eq 0 ]; then
+  set -- prior1 prior2 prior3 prior4 prior5
+fi
+
+for prior in "$@"; do
+  run_prior "$prior"
+done

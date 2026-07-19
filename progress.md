@@ -131,6 +131,39 @@
 - Verification passed: `bash -n scripts/run_exp9_policy_groups1_20.sh`.
 - Verification passed: `bash scripts/run_exp9_policy_groups1_20.sh` prints usage and exits before launching training when arguments are missing.
 - Current user-message counter since this refresh: 4.
+- Added `scripts/play_exp9_groups1_20_wandb.sh` for W&B playback/video capture of any Experiment 9 group from 1 to 20.
+- Play script format: `bash scripts/play_exp9_groups1_20_wandb.sh [--gpu N] [--num-envs N] [--video-length N] <group_number> <wandb_run_path>`.
+- Verification passed: `bash -n scripts/play_exp9_groups1_20_wandb.sh`.
+- Verification passed: `bash scripts/play_exp9_groups1_20_wandb.sh --help`.
+- Current user-message counter since this refresh: 5.
+- Logged the Exp9 play-script unrecognized-option bug report to Notion.
+- Fixed `scripts/play_exp9_groups1_20_wandb.sh` by removing `--env.events.init-smp-state.params.ckpt-path=...`; play task configs already contain the correct Exp9 prior path.
+- Verification passed: `bash -n scripts/play_exp9_groups1_20_wandb.sh`.
+- Verification passed: `bash scripts/play_exp9_groups1_20_wandb.sh --help`.
+- Verification passed: `./.venv/bin/python scripts/play.py Smp-Forward-Exp9-Group1-G1 --help` shows the retained options are valid: `--wandb-run-path`, `--num-envs`, `--video`, and `--video-length`.
+- Note: `uv` is not installed in this local shell, so local play help was checked with `.venv/bin/python`; server-side commands can still use `uv run`.
+- Current user-message counter since this refresh: 0.
+- Logged the Experiment 9 partial-results/reward-design discussion to Notion.
+- Read `exp9_summary.md`; key finding is P4+D/E are currently best, but still have relay behavior and upper-body jitter at zero command.
+- Recorded next reward direction: keep P4, avoid command-zero `r_vel`, and add static-state root angular/vertical stabilization, upper-body pose/velocity damping, and action/joint-acc smoothing candidates.
+- Current user-message counter since this refresh: 1.
+- Logged the Experiment 9 group21-33 extension request to Notion by appending to the existing continuous table.
+- Added three Exp9 stop-branch reward helpers in `src/smp/rl/tasks/steering/mdp/rewards.py`: root angular velocity damping, upper-body joint velocity damping, and action smoothness.
+- Extended `src/smp/rl/tasks/steering/forward_exp9_env_cfg.py` from 20 to 33 groups:
+  - group21-23 use P4 with the three new rewards.
+  - group24-26 repeat group21-23 with `dead_zone_speed=1.0`.
+  - group27-32 repeat group21-26 with P5 low-speed prior.
+  - group33 uses P5 with the group19 baseline stop-product reward.
+- Updated `scripts/run_exp9_prepare_priors.sh` with a `prior5` selector for `forward + stop_static + g1_low_walk` and retained missing-mirror generation.
+- Added `scripts/run_exp9_policy_groups1_33.sh` to train one requested Exp9 group on one requested GPU.
+- Added `scripts/play_exp9_groups1_33_wandb.sh` to play one requested Exp9 group from a W&B run path with EGL video.
+- Verification passed: `bash -n scripts/run_exp9_prepare_priors.sh scripts/run_exp9_policy_groups1_33.sh scripts/play_exp9_groups1_33_wandb.sh`.
+- Verification passed: `./.venv/bin/ruff check src/smp/rl/tasks/steering/mdp/rewards.py src/smp/rl/tasks/steering/forward_exp9_env_cfg.py src/smp/rl/tasks/steering/__init__.py`.
+- Verification passed: local Python builder check confirmed 33 registered Exp9 group builders, expected P4/P5 ckpt paths, and expected dead-zone values for group21-33.
+- Current user-message counter since this refresh: 0.
+- Logged the user request to update `exp9_summary.md` with Exp9 group21-33 content to Notion.
+- Updated `exp9_summary.md` so the summary now covers P5, rewards F/G/H, group21-33 mapping, P5 prior generation, and group1-33 train/play script usage.
+- Current user-message counter since this refresh: 1.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`
