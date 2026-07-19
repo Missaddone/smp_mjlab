@@ -27,6 +27,9 @@ from smp.rl.tasks.body_velocity.body_velocity_exp4_group6_env_cfg import (
 from smp.rl.tasks.body_velocity.body_velocity_exp4_group7_env_cfg import (
   g1_body_velocity_exp4_group7_smp_env_cfg,
 )
+from smp.rl.tasks.body_velocity.body_velocity_exp10_env_cfg import (
+  EXP10_BODY_VELOCITY_BUILDERS,
+)
 
 
 def _runner(experiment_name: str, run_name: str | None = None):
@@ -66,7 +69,20 @@ for _group, _env_builder in _EXP4_GROUPS:
     rl_cfg=_rl,
   )
 
+for _group, _env_builder, _spec in EXP10_BODY_VELOCITY_BUILDERS:
+  _rl = _runner(
+    "smp_exp10_static_steering_body_velocity",
+    run_name=_spec.run_name,
+  )
+  register_mjlab_task(
+    task_id=f"Smp-BodyVelocity-Exp10-Group{_group}-G1",
+    env_cfg=_env_builder(play=False),
+    play_env_cfg=_env_builder(play=True),
+    rl_cfg=_rl,
+  )
+
 __all__ = [
+  "EXP10_BODY_VELOCITY_BUILDERS",
   "g1_body_velocity_exp4_group1_smp_env_cfg",
   "g1_body_velocity_exp4_group2_smp_env_cfg",
   "g1_body_velocity_exp4_group3_smp_env_cfg",

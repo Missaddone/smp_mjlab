@@ -24,6 +24,27 @@ def _xy_world_to_local(vec_w: torch.Tensor, heading_w: torch.Tensor) -> torch.Te
   return torch.stack([cos_h * x_w + sin_h * y_w, -sin_h * x_w + cos_h * y_w], dim=-1)
 
 
+def _apply_zero_sampling_and_dead_zone(
+  *,
+  lin_vel_b: torch.Tensor,
+  yaw_rate: torch.Tensor,
+  random_values: torch.Tensor,
+  zero_command_prob: float,
+  dead_zone_speed: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+  """Set body-velocity commands to all-zero by explicit probability or dead zone."""
+  zero_mask = torch.zeros_like(yaw_rate, dtype=torch.bool)
+  if zero_command_prob > 0.0:
+    zero_mask |= random_values < zero_command_prob
+  if dead_zone_speed > 0.0:
+    command = torch.cat([lin_vel_b, yaw_rate.unsqueeze(-1)], dim=-1)
+    zero_mask |= torch.linalg.norm(command, dim=-1) < dead_zone_speed
+
+  lin_vel_b = torch.where(zero_mask.unsqueeze(-1), torch.zeros_like(lin_vel_b), lin_vel_b)
+  yaw_rate = torch.where(zero_mask, torch.zeros_like(yaw_rate), yaw_rate)
+  return lin_vel_b, yaw_rate
+
+
 class BodyVelocityCommand(CommandTerm):
   """Periodic body-frame xy velocity and yaw-rate command."""
 
@@ -78,11 +99,18 @@ class BodyVelocityCommand(CommandTerm):
     lin_vel_b[:, 1] = torch.empty(n, device=self.device).uniform_(
       self.cfg.lin_vel_y_min, self.cfg.lin_vel_y_max
     )
-    self.lin_vel_b[env_ids] = lin_vel_b
 
     yaw_rate = torch.empty(n, device=self.device)
     yaw_rate.uniform_(self.cfg.yaw_rate_min, self.cfg.yaw_rate_max)
+    lin_vel_b, yaw_rate = _apply_zero_sampling_and_dead_zone(
+      lin_vel_b=lin_vel_b,
+      yaw_rate=yaw_rate,
+      random_values=torch.rand(n, device=self.device),
+      zero_command_prob=self.cfg.zero_command_prob,
+      dead_zone_speed=self.cfg.dead_zone_speed,
+    )
     self.yaw_rate[env_ids] = yaw_rate
+    self.lin_vel_b[env_ids] = lin_vel_b
     self.command_b[env_ids, 0:2] = self.lin_vel_b[env_ids]
     self.command_b[env_ids, 2] = self.yaw_rate[env_ids]
 
@@ -174,6 +202,8 @@ class BodyVelocityCommandCfg(CommandTermCfg):
   lin_vel_y_max: float = 1.0
   yaw_rate_min: float = -1.0
   yaw_rate_max: float = 1.0
+  zero_command_prob: float = 0.0
+  dead_zone_speed: float = 0.0
 
   @dataclass
   class VizCfg:
@@ -206,6 +236,12 @@ class BodyVelocityCommandCfg(CommandTermCfg):
         f"yaw_rate_min ({self.yaw_rate_min})."
       )
       raise ValueError(msg)
+    if not 0.0 <= self.zero_command_prob <= 1.0:
+      raise ValueError(
+        f"zero_command_prob must be in [0, 1], got {self.zero_command_prob}"
+      )
+    if self.dead_zone_speed < 0.0:
+      raise ValueError(f"dead_zone_speed must be non-negative, got {self.dead_zone_speed}")
 
   def build(self, env: "ManagerBasedRlEnv") -> BodyVelocityCommand:
     return BodyVelocityCommand(self, env)

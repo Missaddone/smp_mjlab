@@ -164,6 +164,47 @@
 - Logged the user request to update `exp9_summary.md` with Exp9 group21-33 content to Notion.
 - Updated `exp9_summary.md` so the summary now covers P5, rewards F/G/H, group21-33 mapping, P5 prior generation, and group1-33 train/play script usage.
 - Current user-message counter since this refresh: 1.
+- Logged the Experiment 10 steering/body-velocity static-switch request to Notion.
+- Added `zero_command_when_zero_speed` to `SteeringCommandCfg` so Exp10 steering zero-speed commands expose an all-zero actor command observation without changing original task defaults.
+- Added `zero_command_prob` and `dead_zone_speed` to `BodyVelocityCommandCfg`; defaults preserve the original body-velocity task.
+- Added Exp10 steering stop-switch rewards in `src/smp/rl/tasks/steering/mdp/rewards.py`: sum/product/mixed-product variants with original steering reward used when non-static.
+- Added Exp10 body-velocity stop-switch rewards in `src/smp/rl/tasks/body_velocity/mdp/rewards.py`: sum/product/mixed-product variants with original body-velocity reward used when non-static.
+- Added `src/smp/rl/tasks/steering/steering_exp10_env_cfg.py` and registered `Smp-Steering-Exp10-Group1-G1` through `Smp-Steering-Exp10-Group12-G1`.
+- Added `src/smp/rl/tasks/body_velocity/body_velocity_exp10_env_cfg.py` and registered `Smp-BodyVelocity-Exp10-Group13-G1` through `Smp-BodyVelocity-Exp10-Group24-G1`.
+- Added `scripts/run_exp10_prepare_prior.sh`, `scripts/run_exp10_policy_groups1_24.sh`, `scripts/play_exp10_groups1_24_wandb.sh`, and `exp10_summary.md`.
+- Verification passed: `bash -n scripts/run_exp10_prepare_prior.sh scripts/run_exp10_policy_groups1_24.sh scripts/play_exp10_groups1_24_wandb.sh`.
+- Verification passed: ruff check over modified steering/body_velocity command, reward, env-cfg, and registration files.
+- Verification passed: local Python builder check confirmed 12 steering and 12 body-velocity Exp10 groups with expected prior, command, dead-zone, and reward term settings.
+- Verification passed: importing `smp.rl.tasks` succeeds.
+- Current user-message counter since this refresh: 0.
+- Logged the user clarification that Exp10 dead-zone commands must also receive static rewards, and that body-velocity should use a command-vector norm style stillness test.
+- Updated Exp10 steering static reward threshold to `0.5`, so dead-zone or manually low steering speed commands use static rewards.
+- Updated body-velocity dead-zone command sampling to use full `||[x,y,yaw]|| < 0.5` instead of xy-only norm.
+- Updated body-velocity Exp10 static reward mask to use full `||[x,y,yaw]|| < 0.5` via `command_zero_threshold=0.5`.
+- Updated `exp10_summary.md`, `findings.md`, and `task_plan.md` to record the aligned 0.5 command/reward stillness semantics.
+- Verification passed: ruff over touched Exp10 command/reward/cfg files, `git diff --check`, and local builder assertions for static thresholds.
+- Current user-message counter since this refresh: 0.
+- User clarified the correct Exp10 dead-zone semantics: actor should see zero command in dead-zone groups, but non-dead-zone groups should keep low nonzero commands unchanged.
+- Restored steering command zeroing support with `zero_command_when_zero_speed=True`, and set `command.dead_zone_speed=0.5` only for Exp10 steering group7-12.
+- Restored body-velocity command dead-zone zeroing via full `||[x,y,yaw]|| < 0.5`, and set `command.dead_zone_speed=0.5` only for Exp10 body group19-24.
+- Kept reward stillness aligned with command dead zone: steering group7-12 and body group19-24 use 0.5; non-dead-zone groups use the original smaller 0.2 stillness threshold.
+- Notion logging for this clarification failed with HTTP 403.
+- Verification passed: ruff, `git diff --check`, and local builder assertions for group-specific actor/reward dead-zone semantics.
+- Current user-message counter since this refresh: 1.
+- Logged the ONNX/deployment command-dead-zone question to Notion, including the previous failed clarification row.
+- Used the project subagent to confirm ONNX export only contains the actor policy and observation normalizer, not command manager dead-zone logic.
+- Confirmed deployment must apply the same command preprocessing before feeding observations to ONNX if the training group expects dead-zone commands to appear as zero.
+- Re-verified Exp10 after the dead-zone correction: ruff, `bash -n`, `git diff --check`, and local builder assertions passed.
+- Current user-message counter since this refresh: 2.
+- Logged the user's decision to keep actor observation definitions unchanged and use a deployment ONNX wrapper for dead-zone preprocessing.
+- Added `scripts/export_onnx_with_deadzone.sh`, without `9999` in the script name and without restricting the checkpoint filename to `model_9999.pt`.
+- The new script wraps the exported actor with command-slice dead-zone preprocessing and attaches metadata including threshold, command start, and command dimension.
+- Verification passed: `bash -n scripts/export_onnx_with_deadzone.sh`, `bash scripts/export_onnx_with_deadzone.sh --help`, and `git diff --check`.
+- Current user-message counter since this refresh: 3.
+- User corrected the deployment assumption: real-robot export can only use body-velocity `[x,y,yaw]` control, not steering.
+- Rewrote `scripts/export_onnx_with_deadzone.sh` to closely follow `scripts/export_onnx_9999.sh`, remove `--mode`, remove steering handling, and reject any actor command slice that is not 3D.
+- Re-verified: `bash -n scripts/export_onnx_with_deadzone.sh`, `bash scripts/export_onnx_with_deadzone.sh --help`, and `git diff --check`.
+- Current user-message counter since this refresh: 4.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

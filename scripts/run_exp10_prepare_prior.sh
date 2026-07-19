@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage:
+  bash scripts/run_exp10_prepare_prior.sh [--gpu N]
+
+Builds the Experiment 10 prior:
+  datasets/csv/loco/*.csv + datasets/csv/forward/stop_static.csv
+
+Output:
+  datasets/pretrain_ckpt/exp10_loco_stop_static.pt
+EOF
+}
+
+GPU=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --gpu)
+      GPU="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "[ERROR] Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+LOCO_CSV_DIR="${LOCO_CSV_DIR:-datasets/csv/loco}"
+STOP_STATIC_CSV="${STOP_STATIC_CSV:-datasets/csv/forward/stop_static.csv}"
+WORK_ROOT="${WORK_ROOT:-datasets/exp10_prior_sources}"
+NPZ_ROOT="${NPZ_ROOT:-datasets/npz/exp10}"
+CKPT_ROOT="${CKPT_ROOT:-datasets/pretrain_ckpt}"
+LOG_DIR="${LOG_DIR:-logs/pretrain}"
+PRIOR_NAME="${PRIOR_NAME:-exp10_loco_stop_static}"
+INPUT_FPS="${INPUT_FPS:-30}"
+OUTPUT_FPS="${OUTPUT_FPS:-50}"
+
+PRETRAIN_EPOCHS="${PRETRAIN_EPOCHS:-10000}"
+PRETRAIN_SAVE_INTERVAL="${PRETRAIN_SAVE_INTERVAL:-5000}"
+PRETRAIN_D_MODEL="${PRETRAIN_D_MODEL:-128}"
+PRETRAIN_NUM_LAYERS="${PRETRAIN_NUM_LAYERS:-2}"
+
+RAW_DIR="$WORK_ROOT/$PRIOR_NAME/raw"
+NPZ_DIR="$NPZ_ROOT/$PRIOR_NAME"
+CKPT_PATH="$CKPT_ROOT/$PRIOR_NAME.pt"
+
+run_uv() {
+  if [ -n "$GPU" ]; then
+    CUDA_VISIBLE_DEVICES="$GPU" WANDB_INIT_TIMEOUT="${WANDB_INIT_TIMEOUT:-300}" uv run "$@"
+  else
+    WANDB_INIT_TIMEOUT="${WANDB_INIT_TIMEOUT:-300}" uv run "$@"
+  fi
+}
+
+require_inputs() {
+  if [ ! -d "$LOCO_CSV_DIR" ]; then
+    echo "[ERROR] LOCO_CSV_DIR not found: $LOCO_CSV_DIR" >&2
+    exit 1
+  fi
+  if [ ! -f "$STOP_STATIC_CSV" ]; then
+    echo "[ERROR] STOP_STATIC_CSV not found: $STOP_STATIC_CSV" >&2
+    exit 1
+  fi
+  if [ ! -f scripts/mirror_motion_data.py ]; then
+    echo "[ERROR] Mirror tool not found: scripts/mirror_motion_data.py" >&2
+    exit 1
+  fi
+}
+
+reset_dirs() {
+  rm -rf "$WORK_ROOT/$PRIOR_NAME" "$NPZ_DIR"
+  mkdir -p "$RAW_DIR" "$NPZ_DIR" "$CKPT_ROOT"
+}
+
+copy_sources() {
+  find "$LOCO_CSV_DIR" -maxdepth 1 -type f -name "*.csv" -exec cp -a {} "$RAW_DIR"/ \;
+  cp -a "$STOP_STATIC_CSV" "$RAW_DIR"/
+
+  local count
+  count="$(find "$RAW_DIR" -maxdepth 1 -type f -name "*.csv" | wc -l)"
+  if [ "$count" -eq 0 ]; then
+    echo "[ERROR] No CSV files staged in $RAW_DIR" >&2
+    exit 1
+  fi
+}
+
+ensure_missing_mirrors() {
+  local mirror_tmp_root="$WORK_ROOT/$PRIOR_NAME/mirror_tmp"
+  rm -rf "$mirror_tmp_root"
+  mkdir -p "$mirror_tmp_root"
+
+  local csv_path
+  for csv_path in "$RAW_DIR"/*.csv; do
+    [ -e "$csv_path" ] || continue
+
+    local base
+    base="$(basename "$csv_path")"
+    case "$base" in
+      *_mirror.csv)
+        continue
+        ;;
+    esac
+
+    local mirror_name="${base%.csv}_mirror.csv"
+    if [ -f "$RAW_DIR/$mirror_name" ]; then
+      continue
+    fi
+
+    local one_in="$mirror_tmp_root/${base%.csv}_in"
+    local one_out="$mirror_tmp_root/${base%.csv}_out"
+    mkdir -p "$one_in" "$one_out"
+    cp -a "$csv_path" "$one_in/$base"
+
+    run_uv scripts/mirror_motion_data.py \
+      --input-dir "$one_in" \
+      --output-dir "$one_out" \
+      --csv \
+      --no-npz
+
+    cp -a "$one_out/$mirror_name" "$RAW_DIR/$mirror_name"
+    echo "[INFO] Generated missing mirror: $mirror_name"
+  done
+
+  rm -rf "$mirror_tmp_root"
+}
+
+convert_and_pretrain() {
+  local run_root="$LOG_DIR/$PRIOR_NAME"
+  local latest_run
+
+  run_uv scripts/csv_to_npz.py \
+    --input-dir "$RAW_DIR" \
+    --output-dir "$NPZ_DIR" \
+    --input-fps "$INPUT_FPS" \
+    --output-fps "$OUTPUT_FPS"
+
+  run_uv scripts/pretrain.py \
+    --data-dir "$NPZ_DIR" \
+    --num-layers "$PRETRAIN_NUM_LAYERS" \
+    --no-use-ema \
+    --save-interval "$PRETRAIN_SAVE_INTERVAL" \
+    --num-epochs "$PRETRAIN_EPOCHS" \
+    --train-split 1.0 \
+    --d-model "$PRETRAIN_D_MODEL" \
+    --name "$PRIOR_NAME" \
+    --log-dir "$LOG_DIR" \
+    --wandb-project smp
+
+  latest_run="$(find "$run_root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+  if [ -z "$latest_run" ] || [ ! -f "$latest_run/pretrained.pt" ]; then
+    echo "[ERROR] pretrained.pt not found under $run_root" >&2
+    exit 1
+  fi
+
+  cp -a "$latest_run/pretrained.pt" "$CKPT_PATH"
+  echo "[DONE] $PRIOR_NAME -> $CKPT_PATH"
+}
+
+require_inputs
+reset_dirs
+copy_sources
+ensure_missing_mirrors
+echo "[INFO] $RAW_DIR csv_count=$(find "$RAW_DIR" -maxdepth 1 -type f -name "*.csv" | wc -l)"
+find "$RAW_DIR" -maxdepth 1 -type f -name "*.csv" -printf "  %f\n" | sort
+convert_and_pretrain

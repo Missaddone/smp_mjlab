@@ -142,6 +142,9 @@ class SteeringCommand(CommandTerm):
     self.command_b[:, 0:2] = _dir_world_to_local(self.tar_dir_w, heading_w)
     self.command_b[:, 2] = self.tar_speed
     self.command_b[:, 3:5] = _dir_world_to_local(self.face_dir_w, heading_w)
+    if self.cfg.zero_command_when_zero_speed:
+      zero_mask = self.tar_speed <= self.cfg.zero_command_threshold
+      self.command_b[zero_mask] = 0.0
 
   # GUI.
 
@@ -271,6 +274,8 @@ class SteeringCommandCfg(CommandTermCfg):
   low_speed_min: float = 0.0
   low_speed_max: float = 1.5
   dead_zone_speed: float = 0.0
+  zero_command_when_zero_speed: bool = False
+  zero_command_threshold: float = 1.0e-6
 
   @dataclass
   class VizCfg:
@@ -301,6 +306,11 @@ class SteeringCommandCfg(CommandTermCfg):
       raise ValueError(
         f"tar_speed_min must be <= tar_speed_max, got "
         f"{self.tar_speed_min} > {self.tar_speed_max}"
+      )
+    if self.zero_command_threshold < 0.0:
+      raise ValueError(
+        "zero_command_threshold must be non-negative, "
+        f"got {self.zero_command_threshold}"
       )
 
   def build(self, env: "ManagerBasedRlEnv") -> SteeringCommand:

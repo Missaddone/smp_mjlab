@@ -284,6 +284,110 @@ def forward_stop_switch_mix_product_task(
   return (1.0 - still) * r_vel + still * r_stop
 
 
+def steering_stop_switch_sum_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 1.0,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  moving_vel_weight: float = 0.5,
+  moving_face_weight: float = 0.5,
+  root_stop_weight: float = 0.6,
+  joint_vel_weight: float = 0.4,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp10 steering reward C: original steering task when moving, stop-sum when still."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_face = steering_face_direction(env, command_name=command_name, asset_cfg=asset_cfg)
+  r_move = moving_vel_weight * r_vel + moving_face_weight * r_face
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  r_stop = root_stop_weight * r_root_stop + joint_vel_weight * r_joint_vel
+  return (1.0 - still) * r_move + still * r_stop
+
+
+def steering_stop_switch_product_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 1.0,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  moving_vel_weight: float = 0.5,
+  moving_face_weight: float = 0.5,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp10 steering reward D: original steering task when moving, stop-product when still."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_face = steering_face_direction(env, command_name=command_name, asset_cfg=asset_cfg)
+  r_move = moving_vel_weight * r_vel + moving_face_weight * r_face
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  return (1.0 - still) * r_move + still * (r_root_stop * r_joint_vel)
+
+
+def steering_stop_switch_mix_product_task(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  vel_err_scale: float = 1.0,
+  zero_threshold: float = 0.2,
+  root_vel_exp_scale: float = 2.0,
+  joint_vel_exp_scale: float = 0.02,
+  moving_vel_weight: float = 0.5,
+  moving_face_weight: float = 0.5,
+  product_weight: float = 0.6,
+  root_stop_weight: float = 0.2,
+  joint_vel_weight: float = 0.2,
+  asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
+) -> torch.Tensor:
+  """Exp10 steering reward E: original steering task when moving, mixed stop-product when still."""
+  asset = env.scene[asset_cfg.name]
+  still = _standstill_mask(env, command_name, zero_threshold).to(asset.data.joint_vel.dtype)
+  r_vel = steering_target_velocity(
+    env,
+    command_name=command_name,
+    vel_err_scale=vel_err_scale,
+    asset_cfg=asset_cfg,
+  )
+  r_face = steering_face_direction(env, command_name=command_name, asset_cfg=asset_cfg)
+  r_move = moving_vel_weight * r_vel + moving_face_weight * r_face
+  r_root_stop = torch.exp(
+    -root_vel_exp_scale * (asset.data.root_link_lin_vel_w[:, :2] ** 2).sum(dim=-1)
+  )
+  r_joint_vel = torch.exp(
+    -joint_vel_exp_scale * torch.abs(asset.data.joint_vel).sum(dim=-1)
+  )
+  r_stop = (
+    product_weight * r_root_stop * r_joint_vel
+    + root_stop_weight * r_root_stop
+    + joint_vel_weight * r_joint_vel
+  )
+  return (1.0 - still) * r_move + still * r_stop
+
+
 def forward_stop_product_root_ang_task(
   env: "ManagerBasedRlEnv",
   command_name: str,

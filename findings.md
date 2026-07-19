@@ -42,6 +42,14 @@
 - The ONNX export script is `scripts/export_onnx_9999.sh`.
 - The script only accepts `model_9999.pt` checkpoints and writes `model_9999.onnx` in the same directory.
 - Use the same task id that produced the checkpoint, because the runner rebuilds the environment and actor observation shape from that task config.
+- Dead-zone deployment export script: `scripts/export_onnx_with_deadzone.sh`.
+- `scripts/export_onnx_with_deadzone.sh` is deployment-oriented and only supports body-velocity policies whose actor command is 3D `[x, y, yaw]`.
+- `scripts/export_onnx_with_deadzone.sh` keeps the original actor observation layout and wraps the exported actor with tensor preprocessing only at ONNX export time.
+- Default dead-zone ONNX output path is next to the checkpoint as `<checkpoint_stem>_deadzone.onnx`.
+- The wrapper automatically finds the actor `command` slice from `env.observation_manager.active_terms["actor"]` and `group_obs_term_dim["actor"]`.
+- The wrapper rejects non-3D command slices, so `steering` policies are not exported for real-robot dead-zone deployment by this script.
+- Body-velocity dead-zone logic expects command dim 3: `[v_x, v_y, yaw_rate]`, and zeros the full command slice when `||command|| < dead_zone`.
+- The wrapper applies dead-zone before the actor's `obs_normalizer`, matching training-time raw-observation semantics.
 
 ## LAFAN CSV Viser Clipping
 - `my-dev` contains `scripts/clip_csv_viewer.py`; current `reconstruct` branch did not have this script when checked on 2026-07-06.
@@ -165,3 +173,37 @@
 - Experiment 5 prior script writes NPZ to `datasets/npz/exp5/<group_name>` and final prior checkpoints to `datasets/pretrain_ckpt/<group_name>.pt`.
 - Experiment 5 prior script now stages each group's selected source files under `datasets/exp5_prior_sources/<group_name>/raw`, mirrors them into `datasets/exp5_prior_sources/<group_name>/mirrored` with `--include-original`, and converts the mirrored directory to NPZ. Every prior group therefore contains both original and left-right mirrored clips by default.
 - Experiment 5 policy script uses original `Smp-Steering-G1` and W&B experiment name `smp_exp5_steering_prior_compare`.
+
+## Experiment 10 Steering/Body-Velocity Static Switch
+- Goal: transfer stop behavior from forward to original steering-style command and body-frame velocity command.
+- Shared prior checkpoint path: `datasets/pretrain_ckpt/exp10_loco_stop_static.pt`.
+- Prior data script: `scripts/run_exp10_prepare_prior.sh --gpu <gpu>`.
+- Prior data source: all CSVs in `datasets/csv/loco` plus `datasets/csv/forward/stop_static.csv`; missing mirrors are generated for staged non-mirror CSVs.
+- Steering groups:
+  - Registered task ids: `Smp-Steering-Exp10-Group1-G1` through `Smp-Steering-Exp10-Group12-G1`.
+  - Base config inherits current original `Smp-Steering-G1`: random target direction, random face direction, original observation shape, original SMP product wrapper.
+  - Non-static `r_move = 0.5*r_vel + 0.5*r_face`.
+  - `zero_command_when_zero_speed=True` makes actor command observation all-zero whenever sampled target speed is zero.
+- Body-velocity groups:
+  - Registered task ids: `Smp-BodyVelocity-Exp10-Group13-G1` through `Smp-BodyVelocity-Exp10-Group24-G1`.
+  - Base config inherits `Smp-BodyVelocity-G1`: body-frame `[v_x, v_y, yaw_rate]`, actor observation without `base_lin_vel`, body-velocity SMP product wrapper.
+  - Non-static `r_move = 0.75*r_l + 0.25*r_y`.
+  - `zero_command_prob` and `dead_zone_speed` were added to `BodyVelocityCommandCfg`; zero/dead-zone events set `[v_x, v_y, yaw_rate]` to exactly zero.
+- Command variants:
+  - Steering C1: `P(v=0)=0.3`, otherwise `target_speed~U(0,2)`.
+  - Steering C2: `P(v=0)=0.3`, otherwise `target_speed~U(0,4)`.
+  - Steering C3/C4: C1/C2 plus `dead_zone_speed=0.5`; only these groups turn low nonzero speeds into all-zero actor commands.
+  - Body C1: `P(command=0)=0.3`, otherwise `x,y~U(-2,2)`, `yaw~U(-1,1)`.
+  - Body C2: `P(command=0)=0.3`, otherwise `x,y~U(-4,4)`, `yaw~U(-2,2)`.
+  - Body C3/C4: C1/C2 plus full command-vector dead zone `||[x,y,yaw]|| < 0.5`, which zeros all three command components only in dead-zone groups.
+- Reward variants:
+  - C: moving uses task-specific original reward; stopping uses `0.6*r_root_stop + 0.4*r_joint_vel`.
+  - D: moving uses task-specific original reward; stopping uses `r_root_stop*r_joint_vel`.
+  - E: moving uses task-specific original reward; stopping uses `0.6*r_root_stop*r_joint_vel + 0.2*r_root_stop + 0.2*r_joint_vel`.
+  - Steering stillness uses `||target_speed*target_dir|| <= 0.5`.
+  - Body-velocity stillness uses `||[x,y,yaw]|| < 0.5`.
+  - `r_root_stop=exp(-2.0*||v_root_xy||^2)`, `r_joint_vel=exp(-0.02*sum(|qdot|))`.
+- Dead zone was set to `0.5 m/s` because it matches the original steering lower target speed and is less aggressive than the Exp9 `1.0 m/s` dead zone for the narrower `0-2/0-4` steering range. In dead-zone groups, command generation and reward stillness use the same `0.5` semantics, so low commands are transformed to zero and do not receive moving rewards.
+- Group order is command-major then reward-minor:
+  - Steering group1-3 = C1 with reward C/D/E; group4-6 = C2; group7-9 = C3; group10-12 = C4.
+  - Body group13-15 = C1 with reward C/D/E; group16-18 = C2; group19-21 = C3; group22-24 = C4.
