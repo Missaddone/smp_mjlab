@@ -205,6 +205,40 @@
 - Rewrote `scripts/export_onnx_with_deadzone.sh` to closely follow `scripts/export_onnx_9999.sh`, remove `--mode`, remove steering handling, and reject any actor command slice that is not 3D.
 - Re-verified: `bash -n scripts/export_onnx_with_deadzone.sh`, `bash scripts/export_onnx_with_deadzone.sh --help`, and `git diff --check`.
 - Current user-message counter since this refresh: 4.
+- Investigated `my-dev` for foot-related task options using a subagent and local `git grep` without switching branches.
+- Found `Smp-BodyVelocity-FootRegularized-G1` in `my-dev`; recorded that it is a transfer fine-tune target for Exp10 group14/15 models, not an exact Exp10 continuation.
+- Notion logging for this request failed with HTTP 403.
+- Current user-message counter since this refresh: 5.
+- User asked for a concise explanation of model fine-tuning and whether new rewards should replace or augment the original reward.
+- Subagent request for this explanation failed with HTTP 403, so local `git show my-dev:...` findings were used.
+- Recorded the recommendation: keep Exp10 group14/15 task reward and static behavior, then add foot regularization rewards; do not train only on foot rewards.
+- Notion logging for this follow-up also failed with HTTP 403.
+- Current user-message counter since this refresh: 6. Refresh planning files before/after the next substantial task.
+- User asked about `my-dev:scripts/clip_csv_viewer.py` playback FPS and how to compute original motion duration.
+- Subagent was spawned for the read-only code-logic question but timed out twice and was closed; local branch-source inspection answered the question.
+- Recorded that viewer visualization uses output-fps interpolated frames, while original duration is `(csv_rows - 1) / input_fps`, default input fps 30.
+- Notion was not retried because recent calls consistently returned HTTP 403.
+- Current user-message counter since this refresh: 7. Planning files were refreshed for this threshold.
+- User requested the `my-dev` commit and line references for the foot-regularized task, while warning not to copy my-dev's structure/style.
+- Found `my-dev` HEAD `10a6a4179510cdd456e31d076c0bebc4ec8061e4`; `BodyVelocity-FootRegularized` first appears in commit `1694527`.
+- Key references are in `my-dev:src/smp/rl/tasks/steering/body_velocity_env_cfg.py`, `my-dev:src/smp/rl/tasks/steering/__init__.py`, and `my-dev:src/smp/rl/tasks/steering/mdp/rewards.py`.
+- Current user-message counter since this refresh: 8.
+- User approved starting Experiment 11: keep Exp10 body-velocity group14/group15 task configs and add only support-foot-tilt reward weights `-0.05,-0.1,-0.2,-0.3`.
+- Notion logging for this request failed with HTTP 403.
+- Added `support_foot_tilt_penalty` to `src/smp/rl/tasks/body_velocity/mdp/rewards.py`.
+- Added `src/smp/rl/tasks/body_velocity/body_velocity_exp11_env_cfg.py` with eight group builders inheriting Exp10 group14/group15.
+- Registered `Smp-BodyVelocity-Exp11-Group1-G1` through `Smp-BodyVelocity-Exp11-Group8-G1`.
+- Added `exp11_summary.md` and `scripts/run_exp11_body_velocity_foot_tilt.sh`.
+- Verification passed: `bash -n scripts/run_exp11_body_velocity_foot_tilt.sh`.
+- Verification passed: ruff over the touched body-velocity reward/cfg/registration files.
+- Verification passed: local Python builder check confirmed all 8 Exp11 groups include the foot contact sensor and `support_foot_tilt`, while actor/critic observations are unchanged.
+- Verification passed: `scripts/train.py Smp-BodyVelocity-Exp11-Group1-G1 --help` recognizes W&B resume, max iterations, and num-envs options.
+- Current user-message counter since this refresh: 0.
+- User supplied Exp10 W&B source runs for Exp11: group14 `robinbird-harbin-institute-of-technology/smp/xsxw4bwf`, group15 `robinbird-harbin-institute-of-technology/smp/4gvwh984`.
+- Confirmed Notion fetch works again, but exact table-block replacement failed due indentation/escaping mismatch; fallback append succeeded for the latest three user messages.
+- Updated `scripts/run_exp11_body_velocity_foot_tilt.sh` so group1-4 default to the group14 W&B run and group5-8 default to the group15 W&B run. The script no longer requires passing W&B path for normal Exp11 runs.
+- Updated `exp11_summary.md` with the short command format.
+- Verification passed: `bash -n scripts/run_exp11_body_velocity_foot_tilt.sh`, `bash scripts/run_exp11_body_velocity_foot_tilt.sh --help`, and `git diff --check`.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import torch
 from mjlab.managers.scene_entity_config import SceneEntityCfg
+from mjlab.utils.lab_api.math import quat_apply
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
@@ -14,6 +15,9 @@ if TYPE_CHECKING:
 
 
 _DEFAULT_ASSET_CFG = SceneEntityCfg("robot")
+_DEFAULT_FEET_ASSET_CFG = SceneEntityCfg(
+  "robot", body_names=("left_ankle_roll_link", "right_ankle_roll_link")
+)
 
 
 def _root_lin_vel_w(data) -> torch.Tensor:
@@ -44,6 +48,12 @@ def _root_yaw_rate(data) -> torch.Tensor:
   if hasattr(data, "root_ang_vel_b"):
     return data.root_ang_vel_b[:, 2]
   return _root_ang_vel_w(data)[:, 2]
+
+
+def _body_link_quat_w(data) -> torch.Tensor:
+  if hasattr(data, "body_link_quat_w"):
+    return data.body_link_quat_w
+  return data.body_quat_w
 
 
 def _standstill_mask(
@@ -244,3 +254,36 @@ def body_velocity_stop_switch_mix_product_task(
     + joint_vel_weight * r_joint_vel
   )
   return (1.0 - still) * r_move + still * r_stop
+
+
+def support_foot_tilt_penalty(
+  env: "ManagerBasedRlEnv",
+  sensor_name: str,
+  contact_threshold: float = 1.0,
+  asset_cfg: SceneEntityCfg = _DEFAULT_FEET_ASSET_CFG,
+) -> torch.Tensor:
+  """Penalty for tilted support feet.
+
+  The term is active only for feet whose contact force exceeds
+  ``contact_threshold``. A flat support foot has its local z-axis close to world
+  z, so the xy components of that up vector are near zero.
+  """
+  contact_sensor = env.scene.sensors[sensor_name]
+  force = contact_sensor.data.force
+  if force is None:
+    msg = f"Contact sensor '{sensor_name}' must include force fields."
+    raise RuntimeError(msg)
+
+  in_contact = torch.linalg.norm(force, dim=-1) > contact_threshold
+  if in_contact.ndim > 2:
+    in_contact = in_contact.any(dim=tuple(range(2, in_contact.ndim)))
+
+  asset = env.scene[asset_cfg.name]
+  body_quat_w = _body_link_quat_w(asset.data)[:, asset_cfg.body_ids]
+  local_up = torch.zeros((*body_quat_w.shape[:-1], 3), device=body_quat_w.device)
+  local_up[..., 2] = 1.0
+  foot_up_w = quat_apply(body_quat_w.reshape(-1, 4), local_up.reshape(-1, 3)).reshape_as(
+    local_up
+  )
+  tilt = torch.sum(torch.square(foot_up_w[..., :2]), dim=-1)
+  return torch.sum(tilt * in_contact.to(tilt.dtype), dim=1)

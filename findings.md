@@ -60,6 +60,13 @@
 - Default export filename is `<input_stem>_clip_<start_row>_<end_row>.csv`; duplicate names get `_01`, `_02`, etc.
 - Export writes original CSV rows, not interpolated rows, so the result can be passed to `scripts/csv_to_npz.py`.
 - CSV layout expected by related tools: `base_pos(3), base_quat_wxyz(4), joint_pos(29)`.
+- `scripts/clip_csv_viewer.py` loads raw CSV using `input_fps` and passes it to `CsvMotionLoader(input_fps=..., output_fps=...)`.
+- `CsvMotionLoader` computes raw duration as `(input_frames - 1) / input_fps`, then interpolates poses to `output_fps` for visualization.
+- The viewer frame slider uses interpolated `motion.output_frames`, and status time is displayed as `frame / output_fps`.
+- Playback loop advances one interpolated frame every `1 / playback_fps`; default `playback_fps=50`.
+- Therefore default viewer playback preserves real-time speed for 30fps source data by converting 30fps input to 50fps visualization and playing at 50fps.
+- Original CSV real duration in seconds is `(num_rows - 1) / input_fps`; a quick approximation is `num_rows / input_fps`, but the code uses the `num_rows - 1` convention.
+- Selection export maps visual frames back to original CSV rows by converting visual frame to time with `output_fps`, then time to row index with `input_fps`.
 
 ## Forward Static Stop Prior Data
 - User added `datasets/csv/forward/stop.csv`, but it has only 3 rows and is skipped by `scripts/csv_to_npz.py` because default `window_size=10` and the 30->50fps interpolation gives only 4 frames.
@@ -207,3 +214,28 @@
 - Group order is command-major then reward-minor:
   - Steering group1-3 = C1 with reward C/D/E; group4-6 = C2; group7-9 = C3; group10-12 = C4.
   - Body group13-15 = C1 with reward C/D/E; group16-18 = C2; group19-21 = C3; group22-24 = C4.
+
+## my-dev Foot-Regularized Body Velocity
+- `my-dev` contains a related foot/contact regularized body-velocity task: `Smp-BodyVelocity-FootRegularized-G1`.
+- Registration is in `my-dev:src/smp/rl/tasks/steering/__init__.py`; env builder is `g1_body_velocity_foot_regularized_smp_env_cfg` in `my-dev:src/smp/rl/tasks/steering/body_velocity_env_cfg.py`.
+- It adds a `feet_ground_contact` sensor and rewards: `feet_air_time`, `feet_slide`, `support_foot_tilt`, `persistent_single_support`, `soft_landing`, and `action_rate`.
+- This task is not an Exp10 group14/15-specific task. It uses my-dev's body-velocity command range and does not include Exp10 C1 zero-command sampling or Exp10 static-switch reward.
+- Training from Exp10 group14/15 checkpoints is therefore a transfer/fine-tune into the foot-regularized task, not a continuation of the exact same Exp10 environment.
+- Current branch does not register `Smp-BodyVelocity-FootRegularized-G1`; run the command on `my-dev` or port that task into the current branch first.
+- For Exp10 group14/15 fine-tuning, do not discard the original task reward. The conservative design is to keep the successful Exp10 group14/15 command/static-switch reward and add foot regularization terms on top.
+- Using only foot regularization rewards would optimize foot appearance/contact behavior without preserving velocity tracking, static stability, or SMP style, so it is high-risk for catastrophic drift.
+- my-dev foot regularization is additive: it starts from `g1_body_velocity_smp_env_cfg`, keeps `task_smp_product`, and appends foot/contact/action rewards.
+- my-dev foot-regularized command is not Exp10 C1: `x=[-1,2]`, `y=[-1,1]`, `yaw=[-1,1]`, resampling `(3,8)`, no Exp10 zero-command probability/static-switch reward.
+
+## Experiment 11 Body-Velocity Foot Tilt
+- Goal: continue from the successful Exp10 body-velocity group14/group15 policies and reduce tiptoe by adding only `support_foot_tilt`.
+- Implementation keeps Exp10 group14/group15 command, prior, and `task_smp_product` reward unchanged, then adds one top-level reward term: `support_foot_tilt`.
+- No actor or critic observation terms are added for foot contact. The contact sensor exists only in `cfg.scene.sensors` so the simulated reward function can read contact force.
+- Added reward formula:
+  - `R_total = r_task_smp_product + w_foot_tilt * r_foot_tilt`.
+  - `r_foot_tilt = sum_i 1[||F_i|| > 1.0] * ||up_i_xy||^2` over `left_ankle_roll_link` and `right_ankle_roll_link`.
+  - `up_i` is the foot body's local z-axis rotated into world frame; flat support feet have low xy magnitude.
+- Group mapping:
+  - Exp11 group1-4 inherit Exp10 group14 and use weights `-0.05,-0.1,-0.2,-0.3`.
+  - Exp11 group5-8 inherit Exp10 group15 and use weights `-0.05,-0.1,-0.2,-0.3`.
+- Because `mjlab.scripts.train` cannot resume from an arbitrary local checkpoint path directly, the new training script resumes from W&B via `--agent.resume=True --wandb-run-path ... --wandb-checkpoint-name model_9999.pt`.
