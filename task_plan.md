@@ -101,3 +101,11 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - group5-8 inherit Exp10 group15 command/reward and add support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
   - actor and critic observations are unchanged; the contact sensor is used only by the reward term.
   - training script: `scripts/run_exp11_body_velocity_foot_tilt.sh <group> <gpu> <wandb_run_path> [checkpoint_name]`.
+- Experiment 12 focuses on theme/style priors while preserving Exp10 group14 policy config and sweeping foot-tilt weights:
+  - task ids: `Smp-BodyVelocity-Exp12-Group{1..12}-G1`.
+  - group1-4 use `datasets/pretrain_ckpt/exp12_theme_male.pt`.
+  - group5-8 use `datasets/pretrain_ckpt/exp12_theme_female.pt`.
+  - group9-12 use `datasets/pretrain_ckpt/exp12_theme_children.pt`.
+  - each theme sweeps `support_foot_tilt` weights `-0.05,-0.1,-0.2,-0.3`.
+  - all groups inherit Exp10 group14 command/reward/observations; only prior ckpt path and foot-tilt weight change.
+  - scripts: `scripts/analyze_theme_command_ranges.py`, `scripts/run_exp12_prepare_theme_priors.sh`, `scripts/run_exp12_theme_policy_groups1_12.sh`.

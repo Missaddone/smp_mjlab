@@ -239,3 +239,25 @@
   - Exp11 group1-4 inherit Exp10 group14 and use weights `-0.05,-0.1,-0.2,-0.3`.
   - Exp11 group5-8 inherit Exp10 group15 and use weights `-0.05,-0.1,-0.2,-0.3`.
 - Because `mjlab.scripts.train` cannot resume from an arbitrary local checkpoint path directly, the new training script resumes from W&B via `--agent.resume=True --wandb-run-path ... --wandb-checkpoint-name model_9999.pt`.
+
+## Experiment 12 Theme Priors
+- Goal: test whether male/female/children walking styles can be induced by changing only the SMP prior while keeping Exp10 group14 policy training config unchanged.
+- Local theme CSVs found:
+  - `datasets/csv/theme/walk_male.csv`
+  - `datasets/csv/theme/walk_female.csv`
+  - `datasets/csv/theme/walk_children.csv`
+  - `datasets/csv/theme/stop_static.csv`
+- Exp12 group mapping is theme-major then weight-minor:
+  - group1-4: male theme prior with support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
+  - group5-8: female theme prior with support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
+  - group9-12: children theme prior with support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
+- All Exp12 groups inherit Exp10 group14:
+  - command C1: `P(command=0)=0.3`, otherwise `x,y~U(-2,2)`, `yaw~U(-1,1)`.
+  - reward D: moving body-velocity task, stopping `r_root_stop*r_joint_vel`, then SMP product wrapper.
+  - `support_foot_tilt` is added as a separate top-level term: `R_total = r_exp10_group14_task_smp_product + w*r_foot_tilt`.
+  - only `init_smp_state.params.ckpt_path` and foot-tilt weight change.
+- Theme command ranges computed by `scripts/analyze_theme_command_ranges.py` from 30fps CSV interpolated to 50fps:
+  - male: `x=[-0.4697,1.0390]`, `y=[-0.3238,0.6201]`, `yaw=[-3.2597,4.1955]`.
+  - female: `x=[-0.5441,1.0136]`, `y=[-0.2466,0.5320]`, `yaw=[-2.1310,4.5602]`.
+  - children: `x=[-0.1635,1.7344]`, `y=[-0.6071,0.4886]`, `yaw=[-2.4046,5.1516]`.
+- Style matching must treat `male` as a token, not substring, so `walk_female.csv` is not included in male. Scripts use `_`/`-`/`.` token boundaries.

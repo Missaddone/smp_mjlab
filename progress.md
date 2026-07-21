@@ -239,6 +239,21 @@
 - Updated `scripts/run_exp11_body_velocity_foot_tilt.sh` so group1-4 default to the group14 W&B run and group5-8 default to the group15 W&B run. The script no longer requires passing W&B path for normal Exp11 runs.
 - Updated `exp11_summary.md` with the short command format.
 - Verification passed: `bash -n scripts/run_exp11_body_velocity_foot_tilt.sh`, `bash scripts/run_exp11_body_velocity_foot_tilt.sh --help`, and `git diff --check`.
+- User requested Experiment 12 for male/female/children theme walking style priors, using Exp10 group14 policy config with only prior replacement.
+- Notion logging for the duplicate Exp12 messages failed with HTTP 403.
+- Added `src/smp/rl/tasks/body_velocity/body_velocity_exp12_env_cfg.py`, registering three configs that inherit Exp10 group14 and change only prior ckpt path.
+- Registered `Smp-BodyVelocity-Exp12-Group1-G1` through `Smp-BodyVelocity-Exp12-Group3-G1`.
+- Added `scripts/analyze_theme_command_ranges.py` to compute body-frame `x/y` velocity and yaw-rate ranges from theme CSVs.
+- Added `scripts/run_exp12_prepare_theme_priors.sh` to stage style CSVs plus common stop/static/stand CSVs, convert to NPZ, pretrain three theme priors, and copy them into `datasets/pretrain_ckpt/`.
+- Added `scripts/run_exp12_theme_policy_groups1_3.sh` for single-group W&B policy training.
+- Added `exp12_summary.md` with experiment table, commands, and measured command ranges.
+- Fixed style token matching so `male` does not match `female`.
+- Verification passed: bash syntax checks, script help checks, ruff checks, Exp12 task builder assertions, range analysis script on local CSVs, and `git diff --check`.
+- User corrected Exp12 design: each theme must sweep the four foot-tilt weights, so Exp12 should have 12 groups, not 3.
+- Updated `body_velocity_exp12_env_cfg.py` so Exp12 group1-4 are male, group5-8 female, group9-12 children, each with support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
+- Replaced `scripts/run_exp12_theme_policy_groups1_3.sh` with `scripts/run_exp12_theme_policy_groups1_12.sh`.
+- Updated `exp12_summary.md` to show the 12-group table and formula `R_total = r_exp10_group14_task_smp_product + w_foot_tilt*r_foot_tilt`.
+- Verification passed: bash syntax, script help, ruff, and local Exp12 12-group builder assertions.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`
