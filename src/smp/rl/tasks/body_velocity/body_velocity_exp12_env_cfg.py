@@ -14,12 +14,21 @@ from smp.rl.tasks.body_velocity import mdp
 from smp.rl.tasks.body_velocity.body_velocity_exp10_env_cfg import (
   EXP10_BODY_VELOCITY_GROUP_SPECS,
   _build_exp10_body_velocity_cfg,
+  set_body_velocity_moving_product_mix,
 )
 
 _BASE_EXP10_GROUP = 14
 _FEET_CONTACT_SENSOR = "exp12_feet_ground_contact"
 _FOOT_BODY_NAMES = ("left_ankle_roll_link", "right_ankle_roll_link")
 _FOOT_TILT_WEIGHTS = (-0.05, -0.1, -0.2, -0.3)
+_MOVING_PRODUCT_WEIGHT = 0.6
+_MOVING_LINEAR_WEIGHT = 0.2
+_MOVING_YAW_WEIGHT = 0.2
+_PERSISTENT_SINGLE_SUPPORT_WEIGHT = -0.2
+_DOUBLE_AIR_WEIGHT = -0.3
+_COMMAND_ACTIVE_THRESHOLD = 0.2
+_MAX_SINGLE_SUPPORT_TIME = 0.45
+_MAX_SINGLE_SUPPORT_EXCESS_TIME = 0.8
 
 
 @dataclass(frozen=True)
@@ -45,9 +54,10 @@ def _feet_contact_sensor_cfg() -> ContactSensorCfg:
       entity="robot",
     ),
     secondary=ContactMatch(mode="body", pattern="terrain"),
-    fields=("force",),
+    fields=("found", "force"),
     reduce="netforce",
     num_slots=1,
+    track_air_time=True,
   )
 
 
@@ -76,11 +86,12 @@ EXP12_BODY_VELOCITY_GROUP_SPECS: tuple[Exp12BodyVelocityGroupSpec, ...] = tuple(
     foot_tilt_weight=weight,
     run_name=(
       f"group{group:02d}_theme_{style}_exp10_g14_"
-      f"support_foot_tilt_{_weight_name(weight)}"
+      f"moving_mix060_gait_support_foot_tilt_{_weight_name(weight)}"
     ),
     summary=(
       f"Exp10 group14 config, {style} theme prior, "
-      f"{weight}*support_foot_tilt_penalty"
+      "moving reward 0.6*r_l*r_y + 0.2*r_l + 0.2*r_y, "
+      f"{weight}*support_foot_tilt_penalty, -0.2*single_support, -0.3*double_air"
     ),
   )
   for group, (style, prior_ckpt, weight) in enumerate(
@@ -99,6 +110,12 @@ def _build_exp12_body_velocity_cfg(
 ) -> ManagerBasedRlEnvCfg:
   cfg = _build_exp10_body_velocity_cfg(_exp10_group14_spec(), play=play)
   cfg.events["init_smp_state"].params["ckpt_path"] = spec.prior_ckpt
+  set_body_velocity_moving_product_mix(
+    cfg,
+    product_weight=_MOVING_PRODUCT_WEIGHT,
+    linear_weight=_MOVING_LINEAR_WEIGHT,
+    yaw_weight=_MOVING_YAW_WEIGHT,
+  )
   _append_feet_contact_sensor(cfg)
   cfg.rewards["support_foot_tilt"] = RewardTermCfg(
     func=mdp.support_foot_tilt_penalty,
@@ -107,6 +124,26 @@ def _build_exp12_body_velocity_cfg(
       "sensor_name": _FEET_CONTACT_SENSOR,
       "contact_threshold": 1.0,
       "asset_cfg": SceneEntityCfg("robot", body_names=_FOOT_BODY_NAMES),
+    },
+  )
+  cfg.rewards["persistent_single_support"] = RewardTermCfg(
+    func=mdp.persistent_single_support_penalty,
+    weight=_PERSISTENT_SINGLE_SUPPORT_WEIGHT,
+    params={
+      "command_name": "body_velocity",
+      "sensor_name": _FEET_CONTACT_SENSOR,
+      "max_single_support_time": _MAX_SINGLE_SUPPORT_TIME,
+      "max_excess_time": _MAX_SINGLE_SUPPORT_EXCESS_TIME,
+      "command_threshold": _COMMAND_ACTIVE_THRESHOLD,
+    },
+  )
+  cfg.rewards["double_air"] = RewardTermCfg(
+    func=mdp.double_air_penalty,
+    weight=_DOUBLE_AIR_WEIGHT,
+    params={
+      "command_name": "body_velocity",
+      "sensor_name": _FEET_CONTACT_SENSOR,
+      "command_threshold": _COMMAND_ACTIVE_THRESHOLD,
     },
   )
   return cfg

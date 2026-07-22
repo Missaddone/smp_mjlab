@@ -254,6 +254,21 @@
 - Replaced `scripts/run_exp12_theme_policy_groups1_3.sh` with `scripts/run_exp12_theme_policy_groups1_12.sh`.
 - Updated `exp12_summary.md` to show the 12-group table and formula `R_total = r_exp10_group14_task_smp_product + w_foot_tilt*r_foot_tilt`.
 - Verification passed: bash syntax, script help, ruff, and local Exp12 12-group builder assertions.
+- User pointed out Exp12 docs lacked a play method and the play shell script itself.
+- Added `scripts/play_exp12_groups1_12_wandb.sh` for one-group W&B playback/video capture of Exp12 groups 1-12.
+- Updated `exp12_summary.md`, `task_plan.md`, and `findings.md` with the Exp12 play command format.
+- Notion fetch/update worked; corrected the latest user-message row time to `2026-07-22 01:46:32 UTC`.
+- User asked whether real-robot-style body-velocity play can specify custom `x/y/yaw` commands.
+- Used the configured `gpt-5.4` medium subagent and local inspection. Finding: current body-velocity play has no CLI or GUI command override; it only random-samples from env cfg ranges.
+- Logged the duplicate user messages to Notion by appending rows inside the latest existing table block.
+- User clarified they want steering-style Viser GUI sliders for body-velocity play.
+- Added Viser GUI controls to `BodyVelocityCommand`: `lin_vel_x`, `lin_vel_y`, `yaw_rate`, and `Zero command`, with ranges tied to each task's command cfg.
+- Added `--viewer` passthrough to `scripts/play_exp12_groups1_12_wandb.sh` and documented `--viewer viser` usage in `exp12_summary.md`.
+- User requested Exp13 moving-reward product-mix ablations and Exp12 gait-contact regularization updates.
+- Extended body-velocity stop-switch rewards so moving branch can use `k1*r_l*r_y + k2*r_l + k3*r_y` while preserving old defaults.
+- Added Exp13 groups 1-6, train/play scripts, and `exp13_summary.md`.
+- Updated Exp12 so moving branch uses `0.6*r_l*r_y + 0.2*r_l + 0.2*r_y`, plus persistent-single-support and double-air penalties.
+- Notion update succeeded for the Exp13/Exp12 redesign message at `2026-07-22 07:41:39 UTC`.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

@@ -7,6 +7,10 @@
 - The my-dev command logic includes `_resample_command`, `_update_metrics`, and `_debug_vis_impl`; these are command implementation details and belong in the MDP command file, not env cfg.
 - Actor observation should remove `base_lin_vel`; critic keeps `base_lin_vel`.
 - Reward term key should remain `task_smp_product` for comparability.
+- Current body-velocity play cannot set fixed `[x,y,yaw]` from CLI. `scripts/play.py` only delegates to `mjlab.scripts.play.main`, and `play --help` exposes no command override flags.
+- `BodyVelocityCommand._resample_command()` randomly samples `lin_vel_b[:,0]`, `lin_vel_b[:,1]`, and `yaw_rate` from cfg ranges.
+- `BodyVelocityCommand` now implements Viser GUI sliders like steering: enable the command folder in Viser and adjust `lin_vel_x`, `lin_vel_y`, and `yaw_rate`. Slider min/max values are taken from the active task's command cfg.
+- Minimal future CLI support would add optional fixed command fields to `BodyVelocityCommandCfg` and expose them through a project-local play wrapper.
 
 ## Experiment 4 Reward Formula
 - `r_l = exp(-2.0 * ||v_xy_body - v_xy_cmd_body||^2)`.
@@ -253,11 +257,25 @@
   - group9-12: children theme prior with support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
 - All Exp12 groups inherit Exp10 group14:
   - command C1: `P(command=0)=0.3`, otherwise `x,y~U(-2,2)`, `yaw~U(-1,1)`.
-  - reward D: moving body-velocity task, stopping `r_root_stop*r_joint_vel`, then SMP product wrapper.
+  - reward D stop branch: stopping `r_root_stop*r_joint_vel`, then SMP product wrapper.
+  - moving branch changed to `0.6*r_l*r_y + 0.2*r_l + 0.2*r_y`.
   - `support_foot_tilt` is added as a separate top-level term: `R_total = r_exp10_group14_task_smp_product + w*r_foot_tilt`.
+  - `persistent_single_support` is added with weight `-0.2`, max support time `0.45s`, and active command threshold `0.2`.
+  - `double_air` is added with weight `-0.3` and active command threshold `0.2`.
   - only `init_smp_state.params.ckpt_path` and foot-tilt weight change.
 - Theme command ranges computed by `scripts/analyze_theme_command_ranges.py` from 30fps CSV interpolated to 50fps:
   - male: `x=[-0.4697,1.0390]`, `y=[-0.3238,0.6201]`, `yaw=[-3.2597,4.1955]`.
+- Exp12 play script follows the standard one-group W&B playback format:
+  - `bash scripts/play_exp12_groups1_12_wandb.sh [--gpu N] [--num-envs N] [--video-length N] <group_number> <wandb_run_path>`.
+  - It runs `Smp-BodyVelocity-Exp12-Group<group>-G1` with `MUJOCO_GL=egl`, `PYOPENGL_PLATFORM=egl`, `--video True`, and default `--video-length 1500`.
   - female: `x=[-0.5441,1.0136]`, `y=[-0.2466,0.5320]`, `yaw=[-2.1310,4.5602]`.
   - children: `x=[-0.1635,1.7344]`, `y=[-0.6071,0.4886]`, `yaw=[-2.4046,5.1516]`.
 - Style matching must treat `male` as a token, not substring, so `walk_female.csv` is not included in male. Scripts use `_`/`-`/`.` token boundaries.
+
+## Experiment 13 Body-Velocity Moving Reward Mix
+- Goal: improve single-axis `x/y/yaw` command tracking by replacing the moving reward branch.
+- Shared command/prior/SMP/observations come from Exp10 group14 or group15 unchanged.
+- Moving reward formula: `r_move = k1*r_l*r_y + k2*r_l + k3*r_y`, with `r_l=exp(-2*||v_xy_body-v_xy_cmd||^2)` and `r_y=exp(-1*(yaw_rate_body-yaw_cmd)^2)`.
+- Group1-3 inherit Exp10 group14 and sweep `(k1,k2,k3)` as `(0.5,0.25,0.25)`, `(0.6,0.2,0.2)`, `(0.7,0.15,0.15)`.
+- Group4-6 inherit Exp10 group15 with the same sweep.
+- Scripts: `scripts/run_exp13_body_velocity_moving_reward_mix.sh` and `scripts/play_exp13_groups1_6_wandb.sh`.

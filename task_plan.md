@@ -20,7 +20,9 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - Train commands use `CUDA_VISIBLE_DEVICES=<gpu> uv run scripts/train.py <task>`.
 - Standard train flags: `--agent.max-iterations=10000`, `--env.scene.num-envs=4096`, `--agent.logger=wandb`, `--agent.wandb-project=smp`.
 - Play commands use `uv run scripts/play.py ... --video True` and should include the same environment overrides as training when needed.
+- For interactive body-velocity play, pass `--viewer viser`; the Viser command folder now exposes `lin_vel_x`, `lin_vel_y`, and `yaw_rate` sliders matching the active task's command ranges.
 - W&B checkpoint replacement line: replace `--checkpoint-file ...` with `--wandb-run-path <org-or-entity>/smp/<wandb-run-id>`.
+- Current `scripts/play.py` still does not accept CLI fixed body-velocity `[x,y,yaw]` commands, but Viser sliders are available for interactive body-velocity play.
 
 ## Experiment 4 Design
 - Goal: test body-frame command and body-velocity reward style in an isolated task.
@@ -39,6 +41,7 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 - Dead-zone deployment ONNX export script now exists at `scripts/export_onnx_with_deadzone.sh`; it supports body-velocity `[x,y,yaw]` policies only, accepts any checkpoint file, and writes `<checkpoint_stem>_deadzone.onnx` by default.
 - Do not change actor observation definitions just for real-robot dead-zone behavior; keep simulation training behavior in command terms, and use the ONNX wrapper export for deployment-side embedded dead-zone preprocessing.
 - If user asks to run training, use W&B and keep command/prior consistent with the current env cfg.
+- If user asks to customize body-velocity play commands, use Viser sliders for interactive tests. CLI fixed command flags such as `--body-cmd-x/y/yaw` are not implemented.
 - Experiment 4 was recorded to Notion flow record as item `4`; user still needs to fill actual effect.
 - Experiment 6 now has forward command groups 4-14 registered under `Smp-Forward-Exp6-Group{4..14}-G1`.
 - Experiment 6 group13/group14 are prior-isolation checks:
@@ -107,5 +110,13 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - group5-8 use `datasets/pretrain_ckpt/exp12_theme_female.pt`.
   - group9-12 use `datasets/pretrain_ckpt/exp12_theme_children.pt`.
   - each theme sweeps `support_foot_tilt` weights `-0.05,-0.1,-0.2,-0.3`.
-  - all groups inherit Exp10 group14 command/reward/observations; only prior ckpt path and foot-tilt weight change.
-  - scripts: `scripts/analyze_theme_command_ranges.py`, `scripts/run_exp12_prepare_theme_priors.sh`, `scripts/run_exp12_theme_policy_groups1_12.sh`.
+  - all groups inherit Exp10 group14 command/observations and theme prior replacement.
+  - moving reward is now product-mix `0.6*r_l*r_y + 0.2*r_l + 0.2*r_y`; stop reward remains Exp10 group14 `r_root_stop*r_joint_vel`.
+  - all groups add `persistent_single_support` weight `-0.2` and `double_air` weight `-0.3`; foot-tilt weight still sweeps by group.
+  - scripts: `scripts/analyze_theme_command_ranges.py`, `scripts/run_exp12_prepare_theme_priors.sh`, `scripts/run_exp12_theme_policy_groups1_12.sh`, `scripts/play_exp12_groups1_12_wandb.sh`.
+- Experiment 13 tests body-velocity moving reward product mixes on Exp10 group14/group15:
+  - task ids: `Smp-BodyVelocity-Exp13-Group{1..6}-G1`.
+  - group1-3 inherit Exp10 group14 and use moving weights `(0.5,0.25,0.25)`, `(0.6,0.2,0.2)`, `(0.7,0.15,0.15)`.
+  - group4-6 inherit Exp10 group15 with the same moving-weight sweep.
+  - only the moving branch changes; command, prior, stop reward, observations, and SMP wrapper stay from the selected Exp10 base group.
+  - scripts: `scripts/run_exp13_body_velocity_moving_reward_mix.sh`, `scripts/play_exp13_groups1_6_wandb.sh`.

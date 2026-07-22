@@ -213,6 +213,38 @@ def _build_exp10_body_velocity_cfg(
   return cfg
 
 
+def set_body_velocity_moving_product_mix(
+  cfg: ManagerBasedRlEnvCfg,
+  *,
+  product_weight: float,
+  linear_weight: float,
+  yaw_weight: float,
+) -> None:
+  """Replace the moving branch of body-velocity stop-switch rewards.
+
+  This preserves command, prior, stop-branch reward, and SMP wrapping. It only
+  changes moving reward params from a linear blend to
+  ``k1*r_l*r_y + k2*r_l + k3*r_y``.
+  """
+  reward_cfg = cfg.rewards["task_smp_product"]
+  task_terms = reward_cfg.params["task_terms"]
+  reward_cfg.params["task_terms"] = tuple(
+    (
+      func,
+      weight,
+      {
+        **params,
+        "moving_product_weight": product_weight,
+        "moving_linear_weight": linear_weight,
+        "moving_yaw_weight": yaw_weight,
+      },
+    )
+    if "moving_linear_weight" in params and "moving_yaw_weight" in params
+    else (func, weight, params)
+    for func, weight, params in task_terms
+  )
+
+
 def _make_builder(
   spec: Exp10BodyVelocityGroupSpec,
 ) -> Callable[[bool], ManagerBasedRlEnvCfg]:

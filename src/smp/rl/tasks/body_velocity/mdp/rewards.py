@@ -71,6 +71,7 @@ def _body_velocity_task(
   command_name: str,
   lin_vel_err_scale: float,
   yaw_rate_err_scale: float,
+  product_weight: float,
   linear_weight: float,
   yaw_weight: float,
   asset_cfg: SceneEntityCfg,
@@ -87,7 +88,16 @@ def _body_velocity_task(
     yaw_rate_err_scale=yaw_rate_err_scale,
     asset_cfg=asset_cfg,
   )
-  return linear_weight * linear + yaw_weight * yaw
+  return product_weight * linear * yaw + linear_weight * linear + yaw_weight * yaw
+
+
+def _command_norm(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+) -> torch.Tensor:
+  cmd: "BodyVelocityCommand" = env.command_manager.get_term(command_name)  # type: ignore[assignment]
+  command = torch.cat([cmd.lin_vel_b, cmd.yaw_rate.unsqueeze(-1)], dim=-1)
+  return torch.linalg.norm(command, dim=-1)
 
 
 def body_velocity_linear_tracking(
@@ -148,6 +158,7 @@ def body_velocity_stop_switch_sum_task(
   command_zero_threshold: float = 0.2,
   root_vel_exp_scale: float = 2.0,
   joint_vel_exp_scale: float = 0.02,
+  moving_product_weight: float = 0.0,
   moving_linear_weight: float = 0.75,
   moving_yaw_weight: float = 0.25,
   root_stop_weight: float = 0.6,
@@ -164,6 +175,7 @@ def body_velocity_stop_switch_sum_task(
     command_name,
     lin_vel_err_scale,
     yaw_rate_err_scale,
+    moving_product_weight,
     moving_linear_weight,
     moving_yaw_weight,
     asset_cfg,
@@ -186,6 +198,7 @@ def body_velocity_stop_switch_product_task(
   command_zero_threshold: float = 0.2,
   root_vel_exp_scale: float = 2.0,
   joint_vel_exp_scale: float = 0.02,
+  moving_product_weight: float = 0.0,
   moving_linear_weight: float = 0.75,
   moving_yaw_weight: float = 0.25,
   asset_cfg: SceneEntityCfg = _DEFAULT_ASSET_CFG,
@@ -200,6 +213,7 @@ def body_velocity_stop_switch_product_task(
     command_name,
     lin_vel_err_scale,
     yaw_rate_err_scale,
+    moving_product_weight,
     moving_linear_weight,
     moving_yaw_weight,
     asset_cfg,
@@ -221,6 +235,7 @@ def body_velocity_stop_switch_mix_product_task(
   command_zero_threshold: float = 0.2,
   root_vel_exp_scale: float = 2.0,
   joint_vel_exp_scale: float = 0.02,
+  moving_product_weight: float = 0.0,
   moving_linear_weight: float = 0.75,
   moving_yaw_weight: float = 0.25,
   product_weight: float = 0.6,
@@ -238,6 +253,7 @@ def body_velocity_stop_switch_mix_product_task(
     command_name,
     lin_vel_err_scale,
     yaw_rate_err_scale,
+    moving_product_weight,
     moving_linear_weight,
     moving_yaw_weight,
     asset_cfg,
@@ -287,3 +303,47 @@ def support_foot_tilt_penalty(
   )
   tilt = torch.sum(torch.square(foot_up_w[..., :2]), dim=-1)
   return torch.sum(tilt * in_contact.to(tilt.dtype), dim=1)
+
+
+def persistent_single_support_penalty(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  sensor_name: str,
+  max_single_support_time: float = 0.45,
+  max_excess_time: float = 0.8,
+  command_threshold: float = 0.2,
+) -> torch.Tensor:
+  """Penalty for overlong one-foot support while a body-velocity command is active."""
+  contact_sensor = env.scene.sensors[sensor_name]
+  contact_time = contact_sensor.data.current_contact_time
+  if contact_time is None:
+    msg = f"Contact sensor '{sensor_name}' must enable track_air_time."
+    raise RuntimeError(msg)
+
+  in_contact = contact_time > 0.0
+  single_stance = torch.sum(in_contact, dim=1) == 1
+  support_time = torch.max(contact_time, dim=1).values
+  excess = (support_time - max_single_support_time).clamp(
+    min=0.0, max=max_excess_time
+  )
+  moving = _command_norm(env, command_name) > command_threshold
+  return excess * single_stance.to(excess.dtype) * moving.to(excess.dtype)
+
+
+def double_air_penalty(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  sensor_name: str,
+  command_threshold: float = 0.2,
+) -> torch.Tensor:
+  """Penalty when both feet are airborne while a body-velocity command is active."""
+  contact_sensor = env.scene.sensors[sensor_name]
+  contact_time = contact_sensor.data.current_contact_time
+  if contact_time is None:
+    msg = f"Contact sensor '{sensor_name}' must enable track_air_time."
+    raise RuntimeError(msg)
+
+  in_contact = contact_time > 0.0
+  no_support = torch.sum(in_contact, dim=1) == 0
+  moving = _command_norm(env, command_name) > command_threshold
+  return no_support.to(torch.float32) * moving.to(torch.float32)

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -12,6 +13,7 @@ from mjlab.entity import Entity
 from mjlab.managers.command_manager import CommandTerm, CommandTermCfg
 
 if TYPE_CHECKING:
+  import viser
   from mjlab.envs.manager_based_rl_env import ManagerBasedRlEnv
   from mjlab.viewer.debug_visualizer import DebugVisualizer
 
@@ -22,6 +24,12 @@ def _xy_world_to_local(vec_w: torch.Tensor, heading_w: torch.Tensor) -> torch.Te
   sin_h = torch.sin(heading_w)
   x_w, y_w = vec_w[..., 0], vec_w[..., 1]
   return torch.stack([cos_h * x_w + sin_h * y_w, -sin_h * x_w + cos_h * y_w], dim=-1)
+
+
+def _zero_or_midpoint(min_value: float, max_value: float) -> float:
+  if min_value <= 0.0 <= max_value:
+    return 0.0
+  return 0.5 * (min_value + max_value)
 
 
 def _apply_zero_sampling_and_dead_zone(
@@ -58,6 +66,13 @@ class BodyVelocityCommand(CommandTerm):
     self.command_b = torch.zeros(self.num_envs, 3, device=self.device)
     self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
     self.metrics["error_yaw_rate"] = torch.zeros(self.num_envs, device=self.device)
+
+    # Set by create_gui() when the Viser viewer is active.
+    self._gui_enabled: viser.GuiCheckboxHandle | None = None
+    self._gui_lin_x: viser.GuiSliderHandle | None = None
+    self._gui_lin_y: viser.GuiSliderHandle | None = None
+    self._gui_yaw: viser.GuiSliderHandle | None = None
+    self._gui_get_env_idx: Callable[[], int] | None = None
 
   @property
   def command(self) -> torch.Tensor:
@@ -117,6 +132,80 @@ class BodyVelocityCommand(CommandTerm):
   def _update_command(self) -> None:
     self.command_b[:, 0:2] = self.lin_vel_b
     self.command_b[:, 2] = self.yaw_rate
+
+  # GUI.
+
+  def create_gui(
+    self,
+    name: str,
+    server: "viser.ViserServer",
+    get_env_idx: Callable[[], int],
+    on_change: Callable[[], None] | None = None,
+    request_action: Callable[[str, Any], None] | None = None,
+  ) -> None:
+    """Create body-frame velocity sliders in the Viser viewer."""
+    from viser import Icon
+
+    with server.gui.add_folder(name.capitalize()):
+      enabled = server.gui.add_checkbox("Enable", initial_value=False)
+      lin_x_slider = server.gui.add_slider(
+        "lin_vel_x",
+        min=float(self.cfg.lin_vel_x_min),
+        max=float(self.cfg.lin_vel_x_max),
+        step=0.05,
+        initial_value=_zero_or_midpoint(
+          self.cfg.lin_vel_x_min, self.cfg.lin_vel_x_max
+        ),
+      )
+      lin_y_slider = server.gui.add_slider(
+        "lin_vel_y",
+        min=float(self.cfg.lin_vel_y_min),
+        max=float(self.cfg.lin_vel_y_max),
+        step=0.05,
+        initial_value=_zero_or_midpoint(
+          self.cfg.lin_vel_y_min, self.cfg.lin_vel_y_max
+        ),
+      )
+      yaw_slider = server.gui.add_slider(
+        "yaw_rate",
+        min=float(self.cfg.yaw_rate_min),
+        max=float(self.cfg.yaw_rate_max),
+        step=0.05,
+        initial_value=_zero_or_midpoint(self.cfg.yaw_rate_min, self.cfg.yaw_rate_max),
+      )
+      zero_btn = server.gui.add_button("Zero command", icon=Icon.SQUARE_X)
+
+      @zero_btn.on_click
+      def _(_) -> None:
+        lin_x_slider.value = _zero_or_midpoint(
+          self.cfg.lin_vel_x_min, self.cfg.lin_vel_x_max
+        )
+        lin_y_slider.value = _zero_or_midpoint(
+          self.cfg.lin_vel_y_min, self.cfg.lin_vel_y_max
+        )
+        yaw_slider.value = _zero_or_midpoint(
+          self.cfg.yaw_rate_min, self.cfg.yaw_rate_max
+        )
+
+    self._gui_enabled = enabled
+    self._gui_lin_x = lin_x_slider
+    self._gui_lin_y = lin_y_slider
+    self._gui_yaw = yaw_slider
+    self._gui_get_env_idx = get_env_idx
+
+  def compute(self, dt: float) -> None:
+    super().compute(dt)
+    if self._gui_enabled is None or not self._gui_enabled.value:
+      return
+    assert self._gui_get_env_idx is not None
+    assert self._gui_lin_x is not None
+    assert self._gui_lin_y is not None
+    assert self._gui_yaw is not None
+    idx = self._gui_get_env_idx()
+    self.lin_vel_b[idx, 0] = float(self._gui_lin_x.value)
+    self.lin_vel_b[idx, 1] = float(self._gui_lin_y.value)
+    self.yaw_rate[idx] = float(self._gui_yaw.value)
+    self._update_command()
 
   def _debug_vis_impl(self, visualizer: "DebugVisualizer") -> None:
     env_indices = visualizer.get_env_indices(self.num_envs)
