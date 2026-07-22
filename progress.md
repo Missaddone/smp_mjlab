@@ -269,6 +269,10 @@
 - Added Exp13 groups 1-6, train/play scripts, and `exp13_summary.md`.
 - Updated Exp12 so moving branch uses `0.6*r_l*r_y + 0.2*r_l + 0.2*r_y`, plus persistent-single-support and double-air penalties.
 - Notion update succeeded for the Exp13/Exp12 redesign message at `2026-07-22 07:41:39 UTC`.
+- User clarified Exp11 also needs new groups from group9 onward using moving reward `(0.6,0.2,0.2)` and sweeping gait/drop penalty weights.
+- Extended Exp11 from 8 to 26 groups: group9-17 inherit Exp10 group14, group18-26 inherit Exp10 group15, fixed foot tilt `-0.1`, and sweep gait/drop penalties.
+- Updated Exp11 training script and summary document for groups 1-26.
+- Notion update succeeded for the Exp11 group9-26 clarification at `2026-07-22 07:58:47 UTC`.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

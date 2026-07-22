@@ -99,9 +99,12 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - `scripts/run_exp10_policy_groups1_24.sh <group> <gpu>`.
   - `scripts/play_exp10_groups1_24_wandb.sh [--gpu N] <group> <wandb_run_path>`.
 - Experiment 11 focuses only on Exp10 body-velocity group14/group15 foot tilt fine-tuning:
-  - task ids: `Smp-BodyVelocity-Exp11-Group{1..8}-G1`.
+  - task ids: `Smp-BodyVelocity-Exp11-Group{1..26}-G1`.
   - group1-4 inherit Exp10 group14 command/reward and add support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
   - group5-8 inherit Exp10 group15 command/reward and add support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
+  - group9-17 inherit Exp10 group14, use moving reward `0.6*r_l*r_y + 0.2*r_l + 0.2*r_y`, fixed support-foot-tilt `-0.1`, and sweep gait/drop penalties.
+  - group18-26 repeat group9-17 on Exp10 group15.
+  - gait-only weights: `-0.1,-0.2,-0.4`; drop-only weights: `-0.1,-0.3,-0.6`; combined groups use `(-0.4,-0.1)`, `(-0.2,-0.3)`, `(-0.1,-0.6)`.
   - actor and critic observations are unchanged; the contact sensor is used only by the reward term.
   - training script: `scripts/run_exp11_body_velocity_foot_tilt.sh <group> <gpu> <wandb_run_path> [checkpoint_name]`.
 - Experiment 12 focuses on theme/style priors while preserving Exp10 group14 policy config and sweeping foot-tilt weights:

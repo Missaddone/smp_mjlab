@@ -7,16 +7,19 @@ Usage:
   bash scripts/run_exp11_body_velocity_foot_tilt.sh <group> <gpu> [wandb_run_path] [checkpoint_name]
 
 Arguments:
-  group             Exp11 group number, 1-8.
+  group             Exp11 group number, 1-26.
   gpu               CUDA device id for this foreground run.
   wandb_run_path    Optional source W&B run path. Defaults by group:
-                    group1-4 -> robinbird-harbin-institute-of-technology/smp/xsxw4bwf
-                    group5-8 -> robinbird-harbin-institute-of-technology/smp/4gvwh984
+                    group1-4 and 9-17 -> robinbird-harbin-institute-of-technology/smp/xsxw4bwf
+                    group5-8 and 18-26 -> robinbird-harbin-institute-of-technology/smp/4gvwh984
   checkpoint_name   Optional checkpoint name. Default: model_9999.pt.
 
 Group mapping:
   1-4: base Exp10 group14, foot tilt weights -0.05, -0.10, -0.20, -0.30
   5-8: base Exp10 group15, foot tilt weights -0.05, -0.10, -0.20, -0.30
+  9-17: base Exp10 group14, moving reward 0.6*r_l*r_y + 0.2*r_l + 0.2*r_y,
+        fixed foot tilt -0.10, gait/drop penalty sweep
+  18-26: base Exp10 group15, same group9-17 sweep
 EOF
 }
 
@@ -79,8 +82,98 @@ case "$GROUP" in
     RUN_NAME="group08_from_exp10_g15_support_foot_tilt_w030"
     DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
     ;;
+  9)
+    TASK="Smp-BodyVelocity-Exp11-Group9-G1"
+    RUN_NAME="group09_from_exp10_g14_moving_mix060_gait_w010"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  10)
+    TASK="Smp-BodyVelocity-Exp11-Group10-G1"
+    RUN_NAME="group10_from_exp10_g14_moving_mix060_gait_w020"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  11)
+    TASK="Smp-BodyVelocity-Exp11-Group11-G1"
+    RUN_NAME="group11_from_exp10_g14_moving_mix060_gait_w040"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  12)
+    TASK="Smp-BodyVelocity-Exp11-Group12-G1"
+    RUN_NAME="group12_from_exp10_g14_moving_mix060_drop_w010"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  13)
+    TASK="Smp-BodyVelocity-Exp11-Group13-G1"
+    RUN_NAME="group13_from_exp10_g14_moving_mix060_drop_w030"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  14)
+    TASK="Smp-BodyVelocity-Exp11-Group14-G1"
+    RUN_NAME="group14_from_exp10_g14_moving_mix060_drop_w060"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  15)
+    TASK="Smp-BodyVelocity-Exp11-Group15-G1"
+    RUN_NAME="group15_from_exp10_g14_moving_mix060_gait_w040_drop_w010"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  16)
+    TASK="Smp-BodyVelocity-Exp11-Group16-G1"
+    RUN_NAME="group16_from_exp10_g14_moving_mix060_gait_w020_drop_w030"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  17)
+    TASK="Smp-BodyVelocity-Exp11-Group17-G1"
+    RUN_NAME="group17_from_exp10_g14_moving_mix060_gait_w010_drop_w060"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G14_WANDB_RUN_PATH"
+    ;;
+  18)
+    TASK="Smp-BodyVelocity-Exp11-Group18-G1"
+    RUN_NAME="group18_from_exp10_g15_moving_mix060_gait_w010"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
+  19)
+    TASK="Smp-BodyVelocity-Exp11-Group19-G1"
+    RUN_NAME="group19_from_exp10_g15_moving_mix060_gait_w020"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
+  20)
+    TASK="Smp-BodyVelocity-Exp11-Group20-G1"
+    RUN_NAME="group20_from_exp10_g15_moving_mix060_gait_w040"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
+  21)
+    TASK="Smp-BodyVelocity-Exp11-Group21-G1"
+    RUN_NAME="group21_from_exp10_g15_moving_mix060_drop_w010"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
+  22)
+    TASK="Smp-BodyVelocity-Exp11-Group22-G1"
+    RUN_NAME="group22_from_exp10_g15_moving_mix060_drop_w030"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
+  23)
+    TASK="Smp-BodyVelocity-Exp11-Group23-G1"
+    RUN_NAME="group23_from_exp10_g15_moving_mix060_drop_w060"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
+  24)
+    TASK="Smp-BodyVelocity-Exp11-Group24-G1"
+    RUN_NAME="group24_from_exp10_g15_moving_mix060_gait_w040_drop_w010"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
+  25)
+    TASK="Smp-BodyVelocity-Exp11-Group25-G1"
+    RUN_NAME="group25_from_exp10_g15_moving_mix060_gait_w020_drop_w030"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
+  26)
+    TASK="Smp-BodyVelocity-Exp11-Group26-G1"
+    RUN_NAME="group26_from_exp10_g15_moving_mix060_gait_w010_drop_w060"
+    DEFAULT_WANDB_RUN_PATH="$EXP10_G15_WANDB_RUN_PATH"
+    ;;
   *)
-    echo "[ERROR] group must be 1-8, got: $GROUP" >&2
+    echo "[ERROR] group must be 1-26, got: $GROUP" >&2
     exit 2
     ;;
 esac

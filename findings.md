@@ -242,6 +242,12 @@
 - Group mapping:
   - Exp11 group1-4 inherit Exp10 group14 and use weights `-0.05,-0.1,-0.2,-0.3`.
   - Exp11 group5-8 inherit Exp10 group15 and use weights `-0.05,-0.1,-0.2,-0.3`.
+- Exp11 group9-26 extend the same experiment with the new moving reward `0.6*r_l*r_y + 0.2*r_l + 0.2*r_y`.
+  - group9-17 inherit Exp10 group14; group18-26 inherit Exp10 group15.
+  - support-foot-tilt is fixed at `-0.1`.
+  - groups 9-11 / 18-20 add gait rhythm only: persistent-single-support weights `-0.1,-0.2,-0.4`.
+  - groups 12-14 / 21-23 add drop/no-support only: double-air weights `-0.1,-0.3,-0.6`.
+  - groups 15-17 / 24-26 add both: `(-0.4,-0.1)`, `(-0.2,-0.3)`, `(-0.1,-0.6)` for `(gait, drop)`.
 - Because `mjlab.scripts.train` cannot resume from an arbitrary local checkpoint path directly, the new training script resumes from W&B via `--agent.resume=True --wandb-run-path ... --wandb-checkpoint-name model_9999.pt`.
 
 ## Experiment 12 Theme Priors
