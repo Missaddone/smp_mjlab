@@ -2,13 +2,18 @@
 
 ## Goal
 
-Test whether changing the SMP prior can produce different walking styles while keeping the successful Experiment 10 group14 policy configuration and sweeping the same four support-foot-tilt weights used in Exp11.
+Test whether changing the SMP prior can produce different walking styles.
+
+Exp12 now has two batches:
+
+- group1-12: style prior + foot/gait/drop regularization sweep on top of Exp10 group14.
+- group13-18: pure style-prior replacement on top of Exp10 group14/group15; nothing else changes.
 
 The theme CSVs live under `datasets/csv/theme`.
 
 ## Shared Policy Config
 
-All Exp12 policy groups inherit `Smp-BodyVelocity-Exp10-Group14-G1`, then update
+Exp12 group1-12 inherit `Smp-BodyVelocity-Exp10-Group14-G1`, then update
 the moving reward and add foot-contact regularization:
 
 - command: Exp10 body-velocity C1, `P(command=0)=0.3`, otherwise `x,y~U(-2,2)`, `yaw~U(-1,1)`.
@@ -20,7 +25,13 @@ the moving reward and add foot-contact regularization:
   - `-0.3 * double_air_penalty`, active when `||[x,y,yaw]|| > 0.2`.
 - policy training: `4096 envs`, `10000` iterations, single GPU, W&B logging.
 
-Only the theme prior and `support_foot_tilt` weight change across groups.
+Only the theme prior and `support_foot_tilt` weight change across group1-12.
+
+Exp12 group13-18 inherit the selected Exp10 body-velocity group exactly, then
+only replace `cfg.events["init_smp_state"].params["ckpt_path"]` with the theme
+prior path. This means the SMP guidance reward also uses the matching theme
+prior, because `init_smp_state` loads the model bundle that
+`smp_guidance_reward` evaluates.
 
 ## Prior Data
 
@@ -32,7 +43,7 @@ Each style prior uses the matching walk CSV plus common stop/static/stand CSVs:
 | female | `*female*.csv` + `*stop*/*static*/*stand*.csv` | `datasets/pretrain_ckpt/exp12_theme_female.pt` |
 | children | `*children*.csv` + `*stop*/*static*/*stand*.csv` | `datasets/pretrain_ckpt/exp12_theme_children.pt` |
 
-## Policy Groups
+## Policy Groups 1-12
 
 ```text
 r_move = 0.6*r_l*r_y + 0.2*r_l + 0.2*r_y
@@ -55,6 +66,22 @@ R_total = r_task*r_smp + w_foot_tilt*r_foot_tilt - 0.2*r_single_support - 0.3*r_
 | 10 | children | -0.10 |
 | 11 | children | -0.20 |
 | 12 | children | -0.30 |
+
+## Policy Groups 13-18
+
+These six groups test the cleaner question: keep the successful Exp10 body-velocity
+configuration untouched and only replace the prior. There is no added
+`support_foot_tilt`, `persistent_single_support`, `double_air`, or moving-reward
+override in these groups.
+
+| Group | Base config | Theme prior | Reward/command change |
+|---:|---|---|---|
+| 13 | Exp10 group14 | male | prior only |
+| 14 | Exp10 group14 | female | prior only |
+| 15 | Exp10 group14 | children | prior only |
+| 16 | Exp10 group15 | male | prior only |
+| 17 | Exp10 group15 | female | prior only |
+| 18 | Exp10 group15 | children | prior only |
 
 Current local files match this convention:
 
@@ -87,26 +114,26 @@ Prepare the three theme priors:
 bash scripts/run_exp12_prepare_theme_priors.sh --gpu 0
 ```
 
-Train one policy group:
+Train one policy group from the full 1-18 set:
 
 ```bash
-bash scripts/run_exp12_theme_policy_groups1_12.sh 1 0
-bash scripts/run_exp12_theme_policy_groups1_12.sh 5 1
-bash scripts/run_exp12_theme_policy_groups1_12.sh 9 2
+bash scripts/run_exp12_theme_policy_groups1_18.sh 13 0
+bash scripts/run_exp12_theme_policy_groups1_18.sh 14 1
+bash scripts/run_exp12_theme_policy_groups1_18.sh 18 2
 ```
 
 Play one trained policy from W&B and record video:
 
 ```bash
-bash scripts/play_exp12_groups1_12_wandb.sh --gpu 0 1 <wandb_run_path>
-bash scripts/play_exp12_groups1_12_wandb.sh --gpu 1 --video-length 1500 5 <wandb_run_path>
-bash scripts/play_exp12_groups1_12_wandb.sh --gpu 2 --video-length 1500 9 <wandb_run_path>
+bash scripts/play_exp12_groups1_18_wandb.sh --gpu 0 13 <wandb_run_path>
+bash scripts/play_exp12_groups1_18_wandb.sh --gpu 1 --video-length 1500 14 <wandb_run_path>
+bash scripts/play_exp12_groups1_18_wandb.sh --gpu 2 --video-length 1500 18 <wandb_run_path>
 ```
 
 Open Viser and manually control body-velocity command sliders:
 
 ```bash
-bash scripts/play_exp12_groups1_12_wandb.sh --gpu 0 --viewer viser 1 <wandb_run_path>
+bash scripts/play_exp12_groups1_18_wandb.sh --gpu 0 --viewer viser 13 <wandb_run_path>
 ```
 
 In the Viser panel, enable the `Body_velocity` command controls, then adjust
@@ -122,5 +149,5 @@ MUJOCO_GL=egl PYOPENGL_PLATFORM=egl CUDA_VISIBLE_DEVICES=<gpu> \
     --num-envs 1 \
     --video True \
     --video-length 1500 \
-    --viewer auto
+    --viewer viser
 ```

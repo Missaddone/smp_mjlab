@@ -4,17 +4,16 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/run_exp12_theme_policy_groups1_12.sh <group> <gpu>
+  bash scripts/run_exp12_theme_policy_groups1_18.sh <group> <gpu>
 
 Runs one Experiment 12 policy training job.
-All groups inherit Exp10 body-velocity group14 config, replace the theme prior,
-replace the moving reward with 0.6*r_l*r_y + 0.2*r_l + 0.2*r_y,
-and add support-foot-tilt, persistent-single-support, and double-air penalties.
 
 Group mapping:
-  1-4:   male theme,     weights -0.05, -0.10, -0.20, -0.30
-  5-8:   female theme,   weights -0.05, -0.10, -0.20, -0.30
-  9-12:  children theme, weights -0.05, -0.10, -0.20, -0.30
+  1-4:    male theme, Exp10 group14 + moving mix 0.6/0.2/0.2 + foot/gait/drop regularizers
+  5-8:    female theme, Exp10 group14 + moving mix 0.6/0.2/0.2 + foot/gait/drop regularizers
+  9-12:   children theme, Exp10 group14 + moving mix 0.6/0.2/0.2 + foot/gait/drop regularizers
+  13-15:  Exp10 group14 config, only replace prior with male/female/children
+  16-18:  Exp10 group15 config, only replace prior with male/female/children
 EOF
 }
 
@@ -44,8 +43,14 @@ case "$GROUP" in
   10) TASK="Smp-BodyVelocity-Exp12-Group10-G1"; RUN_NAME="group10_theme_children_exp10_g14_moving_mix060_gait_support_foot_tilt_w010" ;;
   11) TASK="Smp-BodyVelocity-Exp12-Group11-G1"; RUN_NAME="group11_theme_children_exp10_g14_moving_mix060_gait_support_foot_tilt_w020" ;;
   12) TASK="Smp-BodyVelocity-Exp12-Group12-G1"; RUN_NAME="group12_theme_children_exp10_g14_moving_mix060_gait_support_foot_tilt_w030" ;;
+  13) TASK="Smp-BodyVelocity-Exp12-Group13-G1"; RUN_NAME="group13_theme_male_exp10_g14_prior_only" ;;
+  14) TASK="Smp-BodyVelocity-Exp12-Group14-G1"; RUN_NAME="group14_theme_female_exp10_g14_prior_only" ;;
+  15) TASK="Smp-BodyVelocity-Exp12-Group15-G1"; RUN_NAME="group15_theme_children_exp10_g14_prior_only" ;;
+  16) TASK="Smp-BodyVelocity-Exp12-Group16-G1"; RUN_NAME="group16_theme_male_exp10_g15_prior_only" ;;
+  17) TASK="Smp-BodyVelocity-Exp12-Group17-G1"; RUN_NAME="group17_theme_female_exp10_g15_prior_only" ;;
+  18) TASK="Smp-BodyVelocity-Exp12-Group18-G1"; RUN_NAME="group18_theme_children_exp10_g15_prior_only" ;;
   *)
-    echo "[ERROR] group must be an integer from 1 to 12. Got: $GROUP" >&2
+    echo "[ERROR] group must be an integer from 1 to 18. Got: $GROUP" >&2
     usage >&2
     exit 1
     ;;

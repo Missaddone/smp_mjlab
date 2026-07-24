@@ -84,6 +84,13 @@ Run one group at a time:
 bash scripts/run_exp11_body_velocity_foot_tilt.sh <group> <gpu> [wandb_run_path] [checkpoint_name]
 ```
 
+For managed tmux launch, automatic W&B path registration, and one-command replay, use `experiment_launcher.md`:
+
+```bash
+uv run scripts/experiment_launcher.py train exp11 <group> --gpu <gpu>
+uv run scripts/experiment_launcher.py play exp11 <group> --gpu <gpu> --viewer viser
+```
+
 Default checkpoint name is `model_9999.pt`.
 
 Default W&B source checkpoints:

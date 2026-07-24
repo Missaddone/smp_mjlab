@@ -22,6 +22,25 @@
 - `MPLCONFIGDIR=/tmp/mplconfig_smp_tests ./.venv/bin/python -m unittest tests.test_body_velocity_task` passed.
 - `./.venv/bin/ruff check src/smp/rl/rewards.py src/smp/rl/tasks/body_velocity src/smp/rl/tasks/__init__.py tests/test_body_velocity_task.py` passed.
 
+## Shared W&B Run Registry
+- `wandb_run_registry.csv` is tracked at repository root and deliberately contains only `exp,group,run_id`.
+- `scripts/experiment_launcher.py train ...` writes the generated bare run id before the job is launched; it also sets `WANDB_TAGS=expNN` so later cloud lookup is unambiguous.
+- `scripts/experiment_launcher.py play <exp> <group> ...` reads the CSV. For an empty id it queries the W&B `smp` project once using the `expNN` tag plus a bounded `groupNN` name match, writes the newest matching id into the CSV, then replays it.
+- `scripts/experiment_launcher.py sync exp12` backfilled all Exp12 groups 1-18 successfully on 2026-07-23. The table now contains ids for all existing Exp12 groups.
+
+## Play Viewer Diagnosis
+- No tracked pre-existing play script was modified in the current worktree. The newly added Exp11/12/13 wrappers explicitly pass `--viewer auto`, which is the upstream CLI default.
+- Upstream `mjlab.scripts.play` resolves `--viewer auto` to `native` whenever `DISPLAY` or `WAYLAND_DISPLAY` is non-empty; otherwise it selects Viser. On a remote shell with a stale or nonfunctional display variable, native selection can yield no usable visible viewer. Passing `--viewer viser` forces the browser-based simulator view.
+- The current Exp12 scripts have both obsolete `groups1_12` and current `groups1_18` train/play versions. They must be consolidated to comply with the one-current-script-per-experiment rule.
+- Consolidated on 2026-07-23: deleted Exp12 `groups1_12` train/play scripts and replaced the split Exp6 group7-12/group13-14 policy scripts with `run_exp6_groups7_14.sh` and `play_exp6_groups7_14_wandb.sh`.
+- All retained canonical experiment play scripts now force `--viewer viser`; this makes `bash scripts/play_*.sh ...` use the remote browser viewer regardless of an inherited `DISPLAY`/`WAYLAND_DISPLAY`. They still record video with `--video True`.
+
+## Exp13 Tiptoe Fine-Tuning
+- Exp13 G4/G5/G6 all inherit Exp10 group15 command, prior, and static reward, but their moving reward mixes respectively are `(0.5,0.25,0.25)`, `(0.6,0.2,0.2)`, and `(0.7,0.15,0.15)`.
+- Exp11 G20 is not foot-tilt-only. Its added terms are `-0.1*support_foot_tilt_penalty` and `-0.4*persistent_single_support_penalty`; its `double_air` weight is zero. The Exp11 base config also changes the moving reward, but that part must not be imported into Exp13 G4/G6 fine-tunes. Exp13 G7/G11/G15 retain only those regularizer weights while preserving each respective parent's moving reward.
+- Exp13 G8/G12/G16 use only `-0.05*support_foot_tilt`; G9/G13/G17 use `-0.2`; G10/G14/G18 use `-0.4`. All 12 groups fine-tune their parent G4/G5/G6 model_9999.pt for 3000 iterations.
+- `persistent_single_support_penalty` is active for command norm `>0.2` only when exactly one foot has nonzero continuous contact time. It subtracts `0.4 * clamp(max(current_contact_time)-0.45, 0, 0.8)` in G20. It uses the support foot's total uninterrupted contact age, not a separately reset one-foot-phase timer, so preceding double-support time is included. This can penalize legitimate slow walking and must be treated as a gait cadence bias rather than a general anti-tiptoe term.
+
 ## Experiment 4 Seven-Group Runner
 - `k_xy` maps to `lin_vel_err_scale`.
 - `k_yaw` maps to `yaw_rate_err_scale`.
@@ -95,7 +114,7 @@
 - Registered `Smp-Forward-Exp6-Group13-G1`: same command config as group8, intended to use `forward_stop_all.pt`.
 - Registered `Smp-Forward-Exp6-Group14-G1`: same command config as group11, intended to use `forward_stop_all.pt`.
 - Reward, prior default, observations, terminations, target/facing direction behavior all inherit from original forward config unless CLI overrides change ckpt path.
-- Direct bash runner for groups 7-12: `scripts/run_exp6_groups7_12.sh`; it overrides prior to `datasets/pretrain_ckpt/pretrained_forward_stop.pt`.
+- Current direct bash runner for groups 7-14: `scripts/run_exp6_groups7_14.sh`; groups 7-12 use `pretrained_forward_stop.pt`, and groups 13-14 use `forward_stop_all.pt`.
 - `forward_stop_all` prior uses 8 forward actions: walk/jog/run and their mirrors, plus `stop_static.csv` and generated `stop_static_mirror.csv`.
 - `scripts/run_exp6_prepare_forward_stop_all_prior.sh` stages those 8 CSVs, converts to NPZ under `datasets/npz/exp6/forward_stop_all`, pretrains with the standard 10000 epoch/2-layer/no-EMA/d_model=128 setup, and copies `forward_stop_all.pt` into `datasets/pretrain_ckpt/`.
 
@@ -251,17 +270,17 @@
 - Because `mjlab.scripts.train` cannot resume from an arbitrary local checkpoint path directly, the new training script resumes from W&B via `--agent.resume=True --wandb-run-path ... --wandb-checkpoint-name model_9999.pt`.
 
 ## Experiment 12 Theme Priors
-- Goal: test whether male/female/children walking styles can be induced by changing only the SMP prior while keeping Exp10 group14 policy training config unchanged.
+- Goal: test whether male/female/children walking styles can be induced by changing the SMP prior.
 - Local theme CSVs found:
   - `datasets/csv/theme/walk_male.csv`
   - `datasets/csv/theme/walk_female.csv`
   - `datasets/csv/theme/walk_children.csv`
   - `datasets/csv/theme/stop_static.csv`
-- Exp12 group mapping is theme-major then weight-minor:
+- Exp12 group1-12 mapping is theme-major then weight-minor:
   - group1-4: male theme prior with support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
   - group5-8: female theme prior with support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
   - group9-12: children theme prior with support-foot-tilt weights `-0.05,-0.1,-0.2,-0.3`.
-- All Exp12 groups inherit Exp10 group14:
+- Exp12 group1-12 inherit Exp10 group14:
   - command C1: `P(command=0)=0.3`, otherwise `x,y~U(-2,2)`, `yaw~U(-1,1)`.
   - reward D stop branch: stopping `r_root_stop*r_joint_vel`, then SMP product wrapper.
   - moving branch changed to `0.6*r_l*r_y + 0.2*r_l + 0.2*r_y`.
@@ -269,13 +288,19 @@
   - `persistent_single_support` is added with weight `-0.2`, max support time `0.45s`, and active command threshold `0.2`.
   - `double_air` is added with weight `-0.3` and active command threshold `0.2`.
   - only `init_smp_state.params.ckpt_path` and foot-tilt weight change.
+- Exp12 group13-18 are prior-only checks:
+  - group13-15 inherit Exp10 group14 and replace prior with male/female/children.
+  - group16-18 inherit Exp10 group15 and replace prior with male/female/children.
+  - no foot-tilt, gait, double-air, or moving-reward override is added.
+  - SMP reward follows the style prior because `init_smp_state.ckpt_path` loads `_smp_bundle`, and `smp_guidance_reward` evaluates that loaded bundle.
 - Theme command ranges computed by `scripts/analyze_theme_command_ranges.py` from 30fps CSV interpolated to 50fps:
   - male: `x=[-0.4697,1.0390]`, `y=[-0.3238,0.6201]`, `yaw=[-3.2597,4.1955]`.
-- Exp12 play script follows the standard one-group W&B playback format:
-  - `bash scripts/play_exp12_groups1_12_wandb.sh [--gpu N] [--num-envs N] [--video-length N] <group_number> <wandb_run_path>`.
-  - It runs `Smp-BodyVelocity-Exp12-Group<group>-G1` with `MUJOCO_GL=egl`, `PYOPENGL_PLATFORM=egl`, `--video True`, and default `--video-length 1500`.
   - female: `x=[-0.5441,1.0136]`, `y=[-0.2466,0.5320]`, `yaw=[-2.1310,4.5602]`.
   - children: `x=[-0.1635,1.7344]`, `y=[-0.6071,0.4886]`, `yaw=[-2.4046,5.1516]`.
+- Exp12 play script follows the standard one-group W&B playback format:
+  - `bash scripts/play_exp12_groups1_18_wandb.sh [--gpu N] [--num-envs N] [--video-length N] <group_number> <wandb_run_path>`.
+  - It runs `Smp-BodyVelocity-Exp12-Group<group>-G1` with `MUJOCO_GL=egl`, `PYOPENGL_PLATFORM=egl`, `--video True`, and default `--video-length 1500`.
+- Exp12 one-group training script is now `scripts/run_exp12_theme_policy_groups1_18.sh <group> <gpu>`.
 - Style matching must treat `male` as a token, not substring, so `walk_female.csv` is not included in male. Scripts use `_`/`-`/`.` token boundaries.
 
 ## Experiment 13 Body-Velocity Moving Reward Mix
@@ -284,4 +309,11 @@
 - Moving reward formula: `r_move = k1*r_l*r_y + k2*r_l + k3*r_y`, with `r_l=exp(-2*||v_xy_body-v_xy_cmd||^2)` and `r_y=exp(-1*(yaw_rate_body-yaw_cmd)^2)`.
 - Group1-3 inherit Exp10 group14 and sweep `(k1,k2,k3)` as `(0.5,0.25,0.25)`, `(0.6,0.2,0.2)`, `(0.7,0.15,0.15)`.
 - Group4-6 inherit Exp10 group15 with the same sweep.
-- Scripts: `scripts/run_exp13_body_velocity_moving_reward_mix.sh` and `scripts/play_exp13_groups1_6_wandb.sh`.
+- Scripts: `scripts/run_exp13_groups1_18.sh` and `scripts/play_exp13_groups1_18_wandb.sh`.
+
+## Experiment Launch Automation
+- `mjlab.scripts.train` exposes W&B project/name/tags but no CLI field for a new W&B run id.
+- W&B SDK accepts `WANDB_RUN_ID` as an environment setting, so a launcher can generate an id before training and therefore know the complete `<entity>/smp/<id>` playback path without waiting for the website.
+- This is distinct from Exp11's `--wandb-run-path`, which identifies the old Exp10 checkpoint to download before fine-tuning; it must remain unchanged.
+- Local training output already stores downloaded W&B checkpoints below `logs/rsl_rl/<experiment>/wandb_checkpoints/<run_id>/`, confirming that W&B's opaque run id is the only missing element in the usual playback path.
+- `tmux 3.2a` is available. One `smp-experiments` session can contain one named window per training run, so VS Code SSH needs only one attached tmux session while multiple GPU jobs remain individually visible.

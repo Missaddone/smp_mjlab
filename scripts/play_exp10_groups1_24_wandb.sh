@@ -80,6 +80,7 @@ MUJOCO_GL=egl PYOPENGL_PLATFORM=egl CUDA_VISIBLE_DEVICES="$PLAY_GPU" \
     --wandb-run-path "$WANDB_RUN_PATH" \
     --num-envs "$NUM_ENVS" \
     --video True \
-    --video-length "$VIDEO_LENGTH"
+    --video-length "$VIDEO_LENGTH" \
+    --viewer viser
 
 echo "[DONE] exp10_group${GROUP}"

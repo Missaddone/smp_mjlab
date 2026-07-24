@@ -4,22 +4,21 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/play_exp12_groups1_12_wandb.sh [--gpu N] [--num-envs N] [--video-length N] \
+  bash scripts/play_exp11_groups1_26_wandb.sh [--gpu N] [--num-envs N] [--video-length N] \
     [--viewer auto|native|viser] <group_number> <wandb_run_path>
 
 Examples:
-  bash scripts/play_exp12_groups1_12_wandb.sh --gpu 0 1 entity/smp/group1_run
-  bash scripts/play_exp12_groups1_12_wandb.sh --gpu 1 --video-length 1500 9 entity/smp/group9_run
-  bash scripts/play_exp12_groups1_12_wandb.sh --viewer viser 1 entity/smp/group1_run
+  bash scripts/play_exp11_groups1_26_wandb.sh --gpu 0 9 entity/smp/group9_run
+  bash scripts/play_exp11_groups1_26_wandb.sh --viewer viser 25 entity/smp/group25_run
 
-Valid group_number values: 1..12
+Valid group_number values: 1..26
 EOF
 }
 
 PLAY_GPU=0
 NUM_ENVS=1
 VIDEO_LENGTH=1500
-VIEWER=auto
+VIEWER=viser
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -67,22 +66,18 @@ fi
 GROUP="$1"
 WANDB_RUN_PATH="$2"
 
-case "$GROUP" in
-  1|2|3|4|5|6|7|8|9|10|11|12)
-    ;;
-  *)
-    echo "[ERROR] group_number must be an integer from 1 to 12. Got: $GROUP" >&2
-    usage >&2
-    exit 1
-    ;;
-esac
+if ! [[ "$GROUP" =~ ^([1-9]|1[0-9]|2[0-6])$ ]]; then
+  echo "[ERROR] group_number must be an integer from 1 to 26. Got: $GROUP" >&2
+  usage >&2
+  exit 1
+fi
 
 MUJOCO_GL=egl PYOPENGL_PLATFORM=egl CUDA_VISIBLE_DEVICES="$PLAY_GPU" \
-  uv run scripts/play.py "Smp-BodyVelocity-Exp12-Group${GROUP}-G1" \
+  uv run scripts/play.py "Smp-BodyVelocity-Exp11-Group${GROUP}-G1" \
     --wandb-run-path "$WANDB_RUN_PATH" \
     --num-envs "$NUM_ENVS" \
     --video True \
     --video-length "$VIDEO_LENGTH" \
     --viewer "$VIEWER"
 
-echo "[DONE] exp12_group${GROUP}"
+echo "[DONE] exp11_group${GROUP}"

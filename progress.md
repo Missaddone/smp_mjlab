@@ -258,6 +258,13 @@
 - Added `scripts/play_exp12_groups1_12_wandb.sh` for one-group W&B playback/video capture of Exp12 groups 1-12.
 - Updated `exp12_summary.md`, `task_plan.md`, and `findings.md` with the Exp12 play command format.
 - Notion fetch/update worked; corrected the latest user-message row time to `2026-07-22 01:46:32 UTC`.
+- User confirmed adding six more Exp12 pure theme-prior checks and asked whether SMP reward must match the selected style prior.
+- Updated `src/smp/rl/tasks/body_velocity/body_velocity_exp12_env_cfg.py` so Exp12 now registers group1-18.
+- Group13-15 inherit Exp10 group14 exactly and only replace prior with male/female/children; group16-18 inherit Exp10 group15 exactly and only replace prior with male/female/children.
+- Confirmed the SMP reward follows the selected theme because `init_smp_state.ckpt_path` loads the `_smp_bundle` used by `smp_guidance_reward`.
+- Added `scripts/run_exp12_theme_policy_groups1_18.sh` and `scripts/play_exp12_groups1_18_wandb.sh`.
+- Updated `exp12_summary.md`, `task_plan.md`, and `findings.md` for the 1-18 group layout.
+- Verification passed: bash syntax checks, script help checks, ruff, local Exp12 builder assertions for group1-18, and `git diff --check`.
 - User asked whether real-robot-style body-velocity play can specify custom `x/y/yaw` commands.
 - Used the configured `gpt-5.4` medium subagent and local inspection. Finding: current body-velocity play has no CLI or GUI command override; it only random-samples from env cfg ranges.
 - Logged the duplicate user messages to Notion by appending rows inside the latest existing table block.
@@ -273,6 +280,27 @@
 - Extended Exp11 from 8 to 26 groups: group9-17 inherit Exp10 group14, group18-26 inherit Exp10 group15, fixed foot tilt `-0.1`, and sweep gait/drop penalties.
 - Updated Exp11 training script and summary document for groups 1-26.
 - Notion update succeeded for the Exp11 group9-26 clarification at `2026-07-22 07:58:47 UTC`.
+- User plans to evaluate Exp11 reward groups one by one for simultaneous tiptoe, gait-regularity, and landing improvements, then use only evidence-backed results for future Exp13 fine-tuning.
+- Began launcher automation for Exp11/12/13. Verified that the installed train CLI has no new-run-id flag, while the installed W&B SDK supports environment-based run settings; Exp11 source checkpoint paths are separate from the newly created run path.
+- Added `scripts/experiment_launcher.py`, `experiment_launcher.md`, and `scripts/play_exp11_groups1_26_wandb.sh`.
+- The launcher supports Exp11 groups 1-26, Exp12 groups 1-18, and Exp13 groups 1-6. It creates one named window per training job in the `smp-experiments` tmux session and writes local W&B mappings/logs to ignored `.experiment_runs/`.
+- Verification passed: ruff, four launcher unit tests, Exp11 play shell syntax/help, launcher help/list, invalid-group rejection, and `git diff --check`.
+- Offline W&B initialization accepted the supplied `WANDB_RUN_ID` in its generated offline-run directory, but the sandbox blocks W&B's local socket service; no online training or W&B write was run during verification.
+- User requested a portable W&B id registry. Completed: `wandb_run_registry.csv` is the only launcher playback source, with automatic W&B backfill for blank entries and automatic train-time writes.
+- Verified: ruff and Python compilation passed; `sync exp12` used one W&B query and filled Exp12 groups 1-18 in the shared table.
+- Notion page fetch succeeded, but appending the latest user message failed with HTTP 403; no Notion write was made in this turn.
+- Verification note: an inline Python smoke-test command had a shell-quoting `SyntaxError`; no project code ran or changed. The retry uses a quote-free expression.
+- Investigated missing remote play view. `viewer=auto` resolves to native whenever `DISPLAY` or `WAYLAND_DISPLAY` is present, even when that remote display cannot show a window. Current Exp11/12/13 and launcher play defaults are now Viser.
+- Deleted obsolete Exp12 groups1-12 policy train/play scripts. Consolidated Exp6 policy scripts into `run_exp6_groups7_14.sh` and `play_exp6_groups7_14_wandb.sh`; preparation scripts remain because they generate priors rather than train/play policies.
+- Verification passed: `bash -n` on all current Exp6/11/12/13 policy train/play scripts, ruff on launcher, launcher default-play parser assertion (`viewer=viser`), no stale Exp6/Exp12 script references outside historical planning logs, and `git diff --check`.
+- Extended the Viser default to every retained canonical Exp4/5/6/7/9/10/11/12/13 play script. Final verification passed: `bash -n` across all current policy train/play scripts and `git diff --check`.
+- User requested a design-only Exp13 G4-G6 tiptoe fine-tuning proposal. No code was changed for this new experiment; the proposal keeps each parent G4/G5/G6 moving reward and compares Exp11 G20 regularization against foot-tilt-only weights -0.2/-0.4.
+- Implemented the approved Exp13 expansion to G7-G18: each parent G4/G5/G6 has an unchanged G20-style regularizer variant plus foot-tilt-only weights -0.05/-0.2/-0.4. These are 3000-iteration W&B checkpoint fine-tunes, not from-scratch jobs.
+- Replaced the stale Exp13 policy scripts with the single current pair `scripts/run_exp13_groups1_18.sh` and `scripts/play_exp13_groups1_18_wandb.sh`; the launcher auto-resolves the parent W&B run for groups 7-18.
+- Notion fetch for the latest user-message append returned a temporary Feishu internal API error (`2026072420420751D4E0E33E8ECB9C505F`); retry the continuous-table append after code verification.
+- Repeated the Notion fetch after verification; it again returned a Feishu internal API error (`2026072420481389FBE0BACDEB08E5C58`). The latest user instruction remains queued for backfill into the existing continuous table only; no separate table/page was created.
+- Verification passed: `ruff`, Python compilation, `git diff --check`, `bash -n` for both Exp13 scripts, all 18 Exp13 env-cfg builders, launcher group range, W&B tag/config fallback matching, and the 18-row Exp13 W&B registry.
+- Clarified the semantics/risk of Exp11 G20's persistent-single-support term: its implementation uses continuous foot-contact age rather than a true single-stance-duration timer, so it can penalize slow walking. No code change was made.
 
 ## Modified Files For Experiment 4
 - `src/smp/rl/rewards.py`

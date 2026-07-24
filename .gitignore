@@ -9,6 +9,7 @@ build/
 *.egg
 logs/
 wandb/
+.experiment_runs/
 .ruff_cache/
 tests/
 *.pt

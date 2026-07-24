@@ -78,10 +78,10 @@ play_group() {
       --wandb-run-path "$wandb_run_path" \
       --num-envs "$NUM_ENVS" \
       --video True \
-      --video-length "$VIDEO_LENGTH"
+      --video-length "$VIDEO_LENGTH" \
+      --viewer viser
 
   echo "[DONE] exp7_group${group}"
 }
 
 play_group "$GROUP" "$WANDB_RUN_PATH"
-

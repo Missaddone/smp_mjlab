@@ -36,13 +36,15 @@ class Exp12BodyVelocityGroupSpec:
   group: int
   style: str
   prior_ckpt: str
-  foot_tilt_weight: float
+  base_exp10_group: int
+  foot_tilt_weight: float | None
+  add_theme_regularizers: bool
   run_name: str
   summary: str
 
 
-def _exp10_group14_spec():
-  return next(spec for spec in EXP10_BODY_VELOCITY_GROUP_SPECS if spec.group == _BASE_EXP10_GROUP)
+def _exp10_group_spec(group: int):
+  return next(spec for spec in EXP10_BODY_VELOCITY_GROUP_SPECS if spec.group == group)
 
 
 def _feet_contact_sensor_cfg() -> ContactSensorCfg:
@@ -78,12 +80,14 @@ _STYLE_PRIORS: tuple[tuple[str, str], ...] = (
 )
 
 
-EXP12_BODY_VELOCITY_GROUP_SPECS: tuple[Exp12BodyVelocityGroupSpec, ...] = tuple(
+_EXP12_THEME_REGULARIZER_SPECS: tuple[Exp12BodyVelocityGroupSpec, ...] = tuple(
   Exp12BodyVelocityGroupSpec(
     group=group,
     style=style,
     prior_ckpt=prior_ckpt,
+    base_exp10_group=_BASE_EXP10_GROUP,
     foot_tilt_weight=weight,
+    add_theme_regularizers=True,
     run_name=(
       f"group{group:02d}_theme_{style}_exp10_g14_"
       f"moving_mix060_gait_support_foot_tilt_{_weight_name(weight)}"
@@ -105,11 +109,46 @@ EXP12_BODY_VELOCITY_GROUP_SPECS: tuple[Exp12BodyVelocityGroupSpec, ...] = tuple(
 )
 
 
+_EXP12_PRIOR_ONLY_SPECS: tuple[Exp12BodyVelocityGroupSpec, ...] = tuple(
+  Exp12BodyVelocityGroupSpec(
+    group=group,
+    style=style,
+    prior_ckpt=prior_ckpt,
+    base_exp10_group=base_group,
+    foot_tilt_weight=None,
+    add_theme_regularizers=False,
+    run_name=f"group{group:02d}_theme_{style}_exp10_g{base_group}_prior_only",
+    summary=(
+      f"Exp10 group{base_group} config, {style} theme prior only; "
+      "command, moving reward, stop reward, observations, and extra rewards "
+      f"inherit Exp10 group{base_group}"
+    ),
+  )
+  for group, (base_group, style, prior_ckpt) in enumerate(
+    (
+      (base_group, style, prior_ckpt)
+      for base_group in (14, 15)
+      for style, prior_ckpt in _STYLE_PRIORS
+    ),
+    start=13,
+  )
+)
+
+
+EXP12_BODY_VELOCITY_GROUP_SPECS: tuple[Exp12BodyVelocityGroupSpec, ...] = (
+  *_EXP12_THEME_REGULARIZER_SPECS,
+  *_EXP12_PRIOR_ONLY_SPECS,
+)
+
+
 def _build_exp12_body_velocity_cfg(
   spec: Exp12BodyVelocityGroupSpec, play: bool = False
 ) -> ManagerBasedRlEnvCfg:
-  cfg = _build_exp10_body_velocity_cfg(_exp10_group14_spec(), play=play)
+  cfg = _build_exp10_body_velocity_cfg(_exp10_group_spec(spec.base_exp10_group), play=play)
   cfg.events["init_smp_state"].params["ckpt_path"] = spec.prior_ckpt
+  if not spec.add_theme_regularizers:
+    return cfg
+
   set_body_velocity_moving_product_mix(
     cfg,
     product_weight=_MOVING_PRODUCT_WEIGHT,
@@ -119,7 +158,7 @@ def _build_exp12_body_velocity_cfg(
   _append_feet_contact_sensor(cfg)
   cfg.rewards["support_foot_tilt"] = RewardTermCfg(
     func=mdp.support_foot_tilt_penalty,
-    weight=spec.foot_tilt_weight,
+    weight=spec.foot_tilt_weight or 0.0,
     params={
       "sensor_name": _FEET_CONTACT_SENSOR,
       "contact_threshold": 1.0,
