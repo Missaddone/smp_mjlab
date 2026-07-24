@@ -77,7 +77,7 @@ bash scripts/run_exp13_groups1_18.sh 1 0
 bash scripts/run_exp13_groups1_18.sh 7 0 <parent_wandb_run_path>
 ```
 
-For managed tmux launch, automatic W&B path registration, and one-command replay, use `experiment_launcher.md`:
+For W&B path registration and one-command replay, use `experiment_launcher.md` from a tmux window you create yourself:
 
 ```bash
 uv run scripts/experiment_launcher.py train exp13 <group> --gpu <gpu>

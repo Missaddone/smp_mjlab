@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Iterator
 
 ROOT = Path(__file__).resolve().parents[1]
-TMUX_SESSION = "smp-experiments"
 DEFAULT_WANDB_ENTITY = "robinbird-harbin-institute-of-technology"
 DEFAULT_WANDB_PROJECT = "smp"
 WANDB_EXPERIMENT_NAMES = {
@@ -168,7 +167,11 @@ def _write_wandb_run_registry_unlocked(rows: list[WandbRegistryRow]) -> None:
   path = wandb_run_registry_path()
   temp_path = path.with_suffix(".tmp")
   with temp_path.open("w", newline="", encoding="utf-8") as csv_file:
-    writer = csv.DictWriter(csv_file, fieldnames=["exp", "group", "run_id"])
+    writer = csv.DictWriter(
+      csv_file,
+      fieldnames=["exp", "group", "run_id"],
+      lineterminator="\n",
+    )
     writer.writeheader()
     writer.writerows(_complete_wandb_run_registry_rows(rows))
   temp_path.replace(path)
@@ -376,8 +379,6 @@ def create_record(
     run_id = generate_run_id(records)
     created_at = utc_now()
     record_id = f"{created_at.replace(':', '').replace('+00:00', 'Z')}_{experiment}_g{group:02d}_{run_id}"
-    log_path = state_dir() / "logs" / f"{record_id}.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
     record: dict[str, object] = {
       "record_id": record_id,
       "experiment": experiment,
@@ -392,9 +393,6 @@ def create_record(
       "wandb_run_path": f"{wandb_entity}/{DEFAULT_WANDB_PROJECT}/{run_id}",
       "source_wandb_path": source_wandb_path,
       "checkpoint_name": checkpoint_name,
-      "tmux_session": TMUX_SESSION,
-      "tmux_window": f"{experiment}-g{group:02d}-{run_id[:4]}",
-      "log_path": str(log_path.relative_to(ROOT)),
     }
     records.append(record)
     _write_records_unlocked(records)
@@ -467,60 +465,6 @@ def run_record(record_id: str) -> int:
   return completed.returncode
 
 
-def ensure_tmux_session() -> None:
-  exists = subprocess.run(
-    ["tmux", "has-session", "-t", TMUX_SESSION], cwd=ROOT, check=False
-  )
-  if exists.returncode == 0:
-    return
-  subprocess.run(
-    ["tmux", "new-session", "-d", "-s", TMUX_SESSION, "-n", "control", "-c", str(ROOT)],
-    cwd=ROOT,
-    check=True,
-  )
-
-
-def launch_tmux(record: dict[str, object]) -> None:
-  ensure_tmux_session()
-  record_id = str(record["record_id"])
-  launcher_command = shlex.join(
-    [sys.executable, str(Path(__file__).resolve()), "_run", "--record-id", record_id]
-  )
-  log_path = ROOT / str(record["log_path"])
-  shell_command = (
-    "set -o pipefail; "
-    f"{launcher_command} 2>&1 | tee -a {shlex.quote(str(log_path))}; "
-    "result=${PIPESTATUS[0]}; "
-    'printf "\\n[launcher] process exited with code %s; shell left open for inspection.\\n" "$result"; '
-    "exec bash"
-  )
-  subprocess.run(
-    [
-      "tmux",
-      "new-window",
-      "-d",
-      "-t",
-      TMUX_SESSION,
-      "-n",
-      str(record["tmux_window"]),
-      "-c",
-      str(ROOT),
-      "bash",
-      "-lc",
-      shell_command,
-    ],
-    cwd=ROOT,
-    check=True,
-  )
-
-
-def latest_record(experiment: str, group: int) -> dict[str, object] | None:
-  for record in reversed(read_records()):
-    if record["experiment"] == experiment and int(record["group"]) == group:
-      return record
-  return None
-
-
 def print_records(show_all: bool) -> None:
   records = read_records()
   if not show_all:
@@ -533,33 +477,13 @@ def print_records(show_all: bool) -> None:
     print("No launcher records yet.")
     return
 
-  print("experiment group status    gpu  wandb run path                                      tmux window")
+  print("experiment group status    gpu  wandb run path")
   for record in records:
     print(
       f"{str(record['experiment']):10} {int(record['group']):>5} "
       f"{str(record['status']):9} {int(record['gpu']):>3}  "
-      f"{str(record['wandb_run_path']):51} {record['tmux_window']}"
+      f"{str(record['wandb_run_path']):51}"
     )
-
-
-def print_tmux_windows() -> None:
-  completed = subprocess.run(
-    [
-      "tmux",
-      "list-windows",
-      "-t",
-      TMUX_SESSION,
-      "-F",
-      "#{window_index}:#{window_name} active=#{window_active} panes=#{window_panes}",
-    ],
-    cwd=ROOT,
-    check=False,
-    text=True,
-    capture_output=True,
-  )
-  if completed.returncode == 0:
-    print(f"\nTmux session `{TMUX_SESSION}`:")
-    print(completed.stdout.rstrip())
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -574,7 +498,6 @@ def build_parser() -> argparse.ArgumentParser:
   train.add_argument("experiment", choices=sorted(SPECS))
   train.add_argument("group", type=int)
   train.add_argument("--gpu", required=True, type=int)
-  train.add_argument("--foreground", action="store_true", help="Run in this terminal, not tmux.")
   train.add_argument("--wandb-entity", default=os.environ.get("WANDB_ENTITY", DEFAULT_WANDB_ENTITY))
   train.add_argument(
     "--source-wandb-path",
@@ -596,18 +519,9 @@ def build_parser() -> argparse.ArgumentParser:
   sync.add_argument("group", type=int, nargs="?")
   sync.add_argument("--wandb-entity", default=os.environ.get("WANDB_ENTITY", DEFAULT_WANDB_ENTITY))
 
-  status = subparsers.add_parser("status", help="Show the latest registered runs and tmux windows.")
+  status = subparsers.add_parser("status", help="Show the latest registered runs.")
   status.add_argument("--all", action="store_true", help="Include older attempts for each group.")
 
-  logs = subparsers.add_parser("logs", help="Print the log for the latest registered group run.")
-  logs.add_argument("experiment", choices=sorted(SPECS))
-  logs.add_argument("group", type=int)
-  logs.add_argument("--follow", action="store_true")
-
-  subparsers.add_parser("attach", help="Attach to the managed tmux session.")
-
-  internal = subparsers.add_parser("_run", help=argparse.SUPPRESS)
-  internal.add_argument("--record-id", required=True)
   return parser
 
 
@@ -644,13 +558,7 @@ def main() -> int:
       print(f"[ERROR] {error}", file=sys.stderr)
       return 2
     print(f"[launcher] Registered W&B run: {record['wandb_run_path']}")
-    if args.foreground:
-      return run_record(str(record["record_id"]))
-    launch_tmux(record)
-    print(f"[launcher] Started tmux window: {record['tmux_window']}")
-    print("[launcher] Monitor: uv run scripts/experiment_launcher.py status")
-    print("[launcher] Attach:  uv run scripts/experiment_launcher.py attach")
-    return 0
+    return run_record(str(record["record_id"]))
 
   if args.command == "play":
     try:
@@ -714,37 +622,7 @@ def main() -> int:
 
   if args.command == "status":
     print_records(args.all)
-    print_tmux_windows()
     return 0
-
-  if args.command == "logs":
-    try:
-      validate_group(args.experiment, args.group)
-    except ValueError as error:
-      print(f"[ERROR] {error}", file=sys.stderr)
-      return 2
-    record = latest_record(args.experiment, args.group)
-    if record is None:
-      print("[ERROR] No local run record for this group.", file=sys.stderr)
-      return 2
-    log_path = ROOT / str(record["log_path"])
-    if not log_path.exists():
-      print(f"[ERROR] Log does not exist yet: {log_path}", file=sys.stderr)
-      return 2
-    tail_command = ["tail", "-n", "120"]
-    if args.follow:
-      tail_command.append("-f")
-    tail_command.append(str(log_path))
-    return subprocess.run(tail_command, cwd=ROOT, check=False).returncode
-
-  if args.command == "attach":
-    if subprocess.run(["tmux", "has-session", "-t", TMUX_SESSION], check=False).returncode:
-      print(f"[ERROR] tmux session {TMUX_SESSION!r} does not exist yet.", file=sys.stderr)
-      return 2
-    return subprocess.run(["tmux", "attach-session", "-t", TMUX_SESSION], check=False).returncode
-
-  if args.command == "_run":
-    return run_record(args.record_id)
 
   raise AssertionError(f"Unhandled command: {args.command}")
 

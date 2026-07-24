@@ -300,6 +300,8 @@
 - Notion fetch for the latest user-message append returned a temporary Feishu internal API error (`2026072420420751D4E0E33E8ECB9C505F`); retry the continuous-table append after code verification.
 - Repeated the Notion fetch after verification; it again returned a Feishu internal API error (`2026072420481389FBE0BACDEB08E5C58`). The latest user instruction remains queued for backfill into the existing continuous table only; no separate table/page was created.
 - Verification passed: `ruff`, Python compilation, `git diff --check`, `bash -n` for both Exp13 scripts, all 18 Exp13 env-cfg builders, launcher group range, W&B tag/config fallback matching, and the 18-row Exp13 W&B registry.
+- Removed automatic tmux creation from `scripts/experiment_launcher.py` at the user's request. `train` now runs in the invoking terminal; the user owns tmux session/window creation and can choose GPUs through `--gpu`. Removed the obsolete launcher-managed tmux attach/log interfaces and updated the launcher documentation.
+- Inspected the failed Exp13 G7 launcher record: automatic tmux reached the training script, but failed with exit code `127` because `uv` was not on that tmux shell's `PATH`. The recommended manual session command is now `tmux new-session -s smp-train 'exec bash -l'`; it loads the normal Bash login environment before running launcher commands.
 - Clarified the semantics/risk of Exp11 G20's persistent-single-support term: its implementation uses continuous foot-contact age rather than a true single-stance-duration timer, so it can penalize slow walking. No code change was made.
 
 ## Modified Files For Experiment 4
