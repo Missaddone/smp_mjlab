@@ -305,6 +305,33 @@ def support_foot_tilt_penalty(
   return torch.sum(tilt * in_contact.to(tilt.dtype), dim=1)
 
 
+def static_double_support_force_penalty(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  sensor_name: str,
+  min_contact_force: float = 80.0,
+  command_threshold: float = 0.2,
+) -> torch.Tensor:
+  """Count under-loaded feet while a zero body-velocity command is active.
+
+  Each foot is tested independently against the magnitude of its terrain net
+  contact force. A zero-command environment receives one penalty unit for
+  each foot below ``min_contact_force``.
+  """
+  contact_sensor = env.scene.sensors[sensor_name]
+  force = contact_sensor.data.force
+  if force is None:
+    msg = f"Contact sensor '{sensor_name}' must include force fields."
+    raise RuntimeError(msg)
+
+  force_norm = torch.linalg.norm(force, dim=-1)
+  if force_norm.ndim > 2:
+    force_norm = torch.amax(force_norm, dim=tuple(range(2, force_norm.ndim)))
+  under_loaded = force_norm < min_contact_force
+  still = _command_norm(env, command_name) < command_threshold
+  return torch.sum(under_loaded.to(torch.float32), dim=1) * still.to(torch.float32)
+
+
 def persistent_single_support_penalty(
   env: "ManagerBasedRlEnv",
   command_name: str,

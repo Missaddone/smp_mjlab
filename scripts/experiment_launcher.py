@@ -49,9 +49,9 @@ SPECS = {
     play_script="scripts/play_exp12_groups1_18_wandb.sh",
   ),
   "exp13": ExperimentSpec(
-    max_group=18,
-    train_script="scripts/run_exp13_groups1_18.sh",
-    play_script="scripts/play_exp13_groups1_18_wandb.sh",
+    max_group=27,
+    train_script="scripts/run_exp13_groups1_27.sh",
+    play_script="scripts/play_exp13_groups1_27_wandb.sh",
   ),
 }
 
@@ -326,6 +326,12 @@ def exp13_finetune_parent_group(group: int) -> int | None:
   if 11 <= group <= 14:
     return 5
   if 15 <= group <= 18:
+    return 6
+  if group in (19, 22, 23):
+    return 4
+  if group in (20, 24, 25):
+    return 5
+  if group in (21, 26, 27):
     return 6
   return None
 

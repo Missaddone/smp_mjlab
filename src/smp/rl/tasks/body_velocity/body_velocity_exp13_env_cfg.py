@@ -22,6 +22,10 @@ _FOOT_BODY_NAMES = ("left_ankle_roll_link", "right_ankle_roll_link")
 _COMMAND_ACTIVE_THRESHOLD = 0.2
 _MAX_SINGLE_SUPPORT_TIME = 0.45
 _MAX_SINGLE_SUPPORT_EXCESS_TIME = 0.8
+_STATIC_MIN_FOOT_CONTACT_FORCE = 80.0
+_STATIC_FOOT_TILT_WEIGHT = -0.05
+_STATIC_DOUBLE_SUPPORT_FORCE_WEIGHT = -0.1
+_STATIC_DOUBLE_SUPPORT_FORCE_SWEEP_WEIGHTS = (-0.05, -0.2)
 
 
 @dataclass(frozen=True)
@@ -38,7 +42,10 @@ class Exp13BodyVelocityGroupSpec:
   base_exp10_group: int
   reward: Exp13MovingRewardSpec
   foot_tilt_weight: float
+  foot_tilt_contact_threshold: float
   persistent_single_support_weight: float
+  static_double_support_force_weight: float
+  static_min_foot_contact_force: float
   finetune_parent_group: int | None
   run_name: str
   summary: str
@@ -61,7 +68,10 @@ _BASE_GROUP_SPECS: tuple[Exp13BodyVelocityGroupSpec, ...] = tuple(
     base_exp10_group=base_group,
     reward=reward,
     foot_tilt_weight=0.0,
+    foot_tilt_contact_threshold=1.0,
     persistent_single_support_weight=0.0,
+    static_double_support_force_weight=0.0,
+    static_min_foot_contact_force=_STATIC_MIN_FOOT_CONTACT_FORCE,
     finetune_parent_group=None,
     run_name=(
       f"group{group:02d}_from_exp10_g{base_group}_moving_{reward.key}"
@@ -104,7 +114,10 @@ def _finetune_specs_for_parent(
         base_exp10_group=parent.base_exp10_group,
         reward=parent.reward,
         foot_tilt_weight=foot_tilt_weight,
+        foot_tilt_contact_threshold=1.0,
         persistent_single_support_weight=persistent_weight,
+        static_double_support_force_weight=0.0,
+        static_min_foot_contact_force=_STATIC_MIN_FOOT_CONTACT_FORCE,
         finetune_parent_group=parent.group,
         run_name=f"group{group:02d}_finetune_exp13_g{parent.group}_{suffix}",
         summary=(
@@ -125,7 +138,78 @@ _FINETUNE_GROUP_SPECS = tuple(
   )
 )
 
-EXP13_BODY_VELOCITY_GROUP_SPECS = _BASE_GROUP_SPECS + _FINETUNE_GROUP_SPECS
+
+def _static_foot_support_specs() -> tuple[Exp13BodyVelocityGroupSpec, ...]:
+  specs: list[Exp13BodyVelocityGroupSpec] = []
+  for group, parent_group in enumerate((4, 5, 6), start=19):
+    parent = next(spec for spec in _BASE_GROUP_SPECS if spec.group == parent_group)
+    specs.append(
+      Exp13BodyVelocityGroupSpec(
+        group=group,
+        base_exp10_group=parent.base_exp10_group,
+        reward=parent.reward,
+        foot_tilt_weight=_STATIC_FOOT_TILT_WEIGHT,
+        foot_tilt_contact_threshold=_STATIC_MIN_FOOT_CONTACT_FORCE,
+        persistent_single_support_weight=0.0,
+        static_double_support_force_weight=_STATIC_DOUBLE_SUPPORT_FORCE_WEIGHT,
+        static_min_foot_contact_force=_STATIC_MIN_FOOT_CONTACT_FORCE,
+        finetune_parent_group=parent.group,
+        run_name=(
+          f"group{group:02d}_finetune_exp13_g{parent.group}_"
+          "foot_tilt80_static_double_support80"
+        ),
+        summary=(
+          f"Fine-tune Exp13 group{parent.group}; apply -0.05*foot_tilt only "
+          "above 80N per foot, plus -0.1 per under-80N foot while static"
+        ),
+      )
+    )
+  return tuple(specs)
+
+
+_STATIC_FOOT_SUPPORT_GROUP_SPECS = _static_foot_support_specs()
+
+
+def _static_foot_support_weight_sweep_specs() -> tuple[Exp13BodyVelocityGroupSpec, ...]:
+  specs: list[Exp13BodyVelocityGroupSpec] = []
+  group = 22
+  for parent_group in (4, 5, 6):
+    parent = next(spec for spec in _BASE_GROUP_SPECS if spec.group == parent_group)
+    for support_weight in _STATIC_DOUBLE_SUPPORT_FORCE_SWEEP_WEIGHTS:
+      weight_name = f"w{abs(int(round(support_weight * 100))):03d}"
+      specs.append(
+        Exp13BodyVelocityGroupSpec(
+          group=group,
+          base_exp10_group=parent.base_exp10_group,
+          reward=parent.reward,
+          foot_tilt_weight=_STATIC_FOOT_TILT_WEIGHT,
+          foot_tilt_contact_threshold=_STATIC_MIN_FOOT_CONTACT_FORCE,
+          persistent_single_support_weight=0.0,
+          static_double_support_force_weight=support_weight,
+          static_min_foot_contact_force=_STATIC_MIN_FOOT_CONTACT_FORCE,
+          finetune_parent_group=parent.group,
+          run_name=(
+            f"group{group:02d}_finetune_exp13_g{parent.group}_"
+            f"foot_tilt80_static_double_support80_{weight_name}"
+          ),
+          summary=(
+            f"Fine-tune Exp13 group{parent.group}; -0.05*foot_tilt above "
+            f"80N per foot and {support_weight} per under-80N foot while static"
+          ),
+        )
+      )
+      group += 1
+  return tuple(specs)
+
+
+_STATIC_FOOT_SUPPORT_WEIGHT_SWEEP_GROUP_SPECS = _static_foot_support_weight_sweep_specs()
+
+EXP13_BODY_VELOCITY_GROUP_SPECS = (
+  _BASE_GROUP_SPECS
+  + _FINETUNE_GROUP_SPECS
+  + _STATIC_FOOT_SUPPORT_GROUP_SPECS
+  + _STATIC_FOOT_SUPPORT_WEIGHT_SWEEP_GROUP_SPECS
+)
 
 
 def _feet_contact_sensor_cfg(*, track_air_time: bool) -> ContactSensorCfg:
@@ -176,7 +260,7 @@ def _build_exp13_body_velocity_cfg(
       weight=spec.foot_tilt_weight,
       params={
         "sensor_name": _FEET_CONTACT_SENSOR,
-        "contact_threshold": 1.0,
+        "contact_threshold": spec.foot_tilt_contact_threshold,
         "asset_cfg": SceneEntityCfg("robot", body_names=_FOOT_BODY_NAMES),
       },
     )
@@ -189,6 +273,17 @@ def _build_exp13_body_velocity_cfg(
         "sensor_name": _FEET_CONTACT_SENSOR,
         "max_single_support_time": _MAX_SINGLE_SUPPORT_TIME,
         "max_excess_time": _MAX_SINGLE_SUPPORT_EXCESS_TIME,
+        "command_threshold": _COMMAND_ACTIVE_THRESHOLD,
+      },
+    )
+  if spec.static_double_support_force_weight != 0.0:
+    cfg.rewards["static_double_support_force"] = RewardTermCfg(
+      func=mdp.static_double_support_force_penalty,
+      weight=spec.static_double_support_force_weight,
+      params={
+        "command_name": "body_velocity",
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "min_contact_force": spec.static_min_foot_contact_force,
         "command_threshold": _COMMAND_ACTIVE_THRESHOLD,
       },
     )

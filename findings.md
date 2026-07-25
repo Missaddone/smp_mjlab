@@ -62,7 +62,7 @@
 ## ONNX Export
 - `my-dev` does not contain a real `scripts/rsl_rl/export_onnx.py` file; `notebook.md` only has an old command memo for that path.
 - Current export API is `MjlabOnPolicyRunner.export_policy_to_onnx(...)` in the installed `mjlab` package.
-- The ONNX export script is `scripts/export_onnx_9999.sh`.
+- The current generic ONNX export script is `scripts/export_onnx.sh`.
 - The script only accepts `model_9999.pt` checkpoints and writes `model_9999.onnx` in the same directory.
 - Use the same task id that produced the checkpoint, because the runner rebuilds the environment and actor observation shape from that task config.
 - Dead-zone deployment export script: `scripts/export_onnx_with_deadzone.sh`.
@@ -309,7 +309,9 @@
 - Moving reward formula: `r_move = k1*r_l*r_y + k2*r_l + k3*r_y`, with `r_l=exp(-2*||v_xy_body-v_xy_cmd||^2)` and `r_y=exp(-1*(yaw_rate_body-yaw_cmd)^2)`.
 - Group1-3 inherit Exp10 group14 and sweep `(k1,k2,k3)` as `(0.5,0.25,0.25)`, `(0.6,0.2,0.2)`, `(0.7,0.15,0.15)`.
 - Group4-6 inherit Exp10 group15 with the same sweep.
-- Scripts: `scripts/run_exp13_groups1_18.sh` and `scripts/play_exp13_groups1_18_wandb.sh`.
+- Exp13 G19-G21 each retain G4/G5/G6 respectively, use a per-foot 80N tilt-contact threshold, and add `-0.1` for each foot below 80N only when `||command|| < 0.2`; their tilt weight is `-0.05`. G22-G27 repeat the same setup with static per-underloaded-foot weights `-0.05/-0.2` for each parent G4/G5/G6.
+- Scripts: `scripts/run_exp13_groups1_27.sh` and `scripts/play_exp13_groups1_27_wandb.sh`.
+- Generic policy export script: `scripts/export_onnx.sh`; it exports any policy checkpoint to a same-directory `.onnx` file. The separate `scripts/export_onnx_with_deadzone.sh` is only for body-velocity configs trained with a command dead zone.
 
 ## Experiment Launch Automation
 - `mjlab.scripts.train` exposes W&B project/name/tags but no CLI field for a new W&B run id.

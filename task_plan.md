@@ -44,9 +44,9 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - Completed: one command lists supported group counts, launches a selected group on a selected GPU in a managed tmux window, and records the generated W&B path locally.
   - Completed: new W&B run ids are generated through `WANDB_RUN_ID`; Exp11's separate source-checkpoint W&B path is preserved for fine-tuning.
   - Completed: added Exp11 one-group playback wrapper so Exp11 evaluation does not require reconstructing a raw `scripts/play.py` command.
-  - No additional Exp13 group design is pending; validate G7-G18 config construction and launcher resolution before training.
+  - Exp13 G22-G27 are implemented: retain each G4/G5/G6 parent and the 80N per-foot tilt/support setup, while sweeping static per-underloaded-foot support weights `-0.05` and `-0.2`.
 - Script lifecycle rule: when an experiment's group range is extended, replace the prior train/play script of the same role rather than retaining an outdated group-range script. Existing unrelated user changes are not removed in this automation task.
-- ONNX export script now exists at `scripts/export_onnx_9999.sh`.
+- ONNX export script now exists at `scripts/export_onnx.sh` and accepts any policy checkpoint filename.
 - Dead-zone deployment ONNX export script now exists at `scripts/export_onnx_with_deadzone.sh`; it supports body-velocity `[x,y,yaw]` policies only, accepts any checkpoint file, and writes `<checkpoint_stem>_deadzone.onnx` by default.
 - Do not change actor observation definitions just for real-robot dead-zone behavior; keep simulation training behavior in command terms, and use the ONNX wrapper export for deployment-side embedded dead-zone preprocessing.
 - If user asks to run training, use W&B and keep command/prior consistent with the current env cfg.
@@ -130,9 +130,10 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - For group13-18, SMP reward follows the theme prior because `init_smp_state.ckpt_path` is set to that theme ckpt and `smp_guidance_reward` uses the loaded `_smp_bundle`.
   - scripts: `scripts/analyze_theme_command_ranges.py`, `scripts/run_exp12_prepare_theme_priors.sh`, `scripts/run_exp12_theme_policy_groups1_18.sh`, `scripts/play_exp12_groups1_18_wandb.sh`.
 - Experiment 13 tests body-velocity moving reward product mixes on Exp10 group14/group15, then fine-tunes G4/G5/G6 with foot regularization:
-  - task ids: `Smp-BodyVelocity-Exp13-Group{1..18}-G1`.
+  - task ids: `Smp-BodyVelocity-Exp13-Group{1..27}-G1`.
   - group1-3 inherit Exp10 group14 and use moving weights `(0.5,0.25,0.25)`, `(0.6,0.2,0.2)`, `(0.7,0.15,0.15)`.
   - group4-6 inherit Exp10 group15 with the same moving-weight sweep.
   - only the moving branch changes; command, prior, stop reward, observations, and SMP wrapper stay from the selected Exp10 base group.
   - G7-G18 retain their parent task settings and add, per parent, G20-style `(-0.1 foot tilt, -0.4 persistent support)` or foot-tilt-only `-0.05/-0.2/-0.4`.
-  - scripts: `scripts/run_exp13_groups1_18.sh`, `scripts/play_exp13_groups1_18_wandb.sh`.
+  - G19-G21 retain G4/G5/G6 respectively and add `-0.05*foot_tilt` only for feet over 80N plus `-0.1` for each foot under 80N while static. G22-G27 retain the same 80N setup and sweep the static per-underloaded-foot weight `-0.05/-0.2` for each parent.
+  - scripts: `scripts/run_exp13_groups1_27.sh`, `scripts/play_exp13_groups1_27_wandb.sh`.
