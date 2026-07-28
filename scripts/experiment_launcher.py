@@ -26,6 +26,7 @@ WANDB_EXPERIMENT_NAMES = {
   "exp11": "smp_exp11_body_velocity_foot_tilt",
   "exp12": "smp_exp12_body_velocity_theme_prior",
   "exp13": "smp_exp13_body_velocity_moving_reward_mix",
+  "exp14": "smp_exp14_body_velocity_flatfoot_duty",
 }
 WandbRegistryRow = dict[str, str]
 
@@ -49,9 +50,14 @@ SPECS = {
     play_script="scripts/play_exp12_groups1_18_wandb.sh",
   ),
   "exp13": ExperimentSpec(
-    max_group=27,
-    train_script="scripts/run_exp13_groups1_27.sh",
-    play_script="scripts/play_exp13_groups1_27_wandb.sh",
+    max_group=21,
+    train_script="scripts/run_exp13_groups1_21.sh",
+    play_script="scripts/play_exp13_groups1_21_wandb.sh",
+  ),
+  "exp14": ExperimentSpec(
+    max_group=16,
+    train_script="scripts/run_exp14_groups1_16.sh",
+    play_script="scripts/play_exp14_groups1_16_wandb.sh",
   ),
 }
 
@@ -327,12 +333,22 @@ def exp13_finetune_parent_group(group: int) -> int | None:
     return 5
   if 15 <= group <= 18:
     return 6
-  if group in (19, 22, 23):
+  if group == 19:
     return 4
-  if group in (20, 24, 25):
+  if group == 20:
     return 5
-  if group in (21, 26, 27):
+  if group == 21:
     return 6
+  return None
+
+
+def finetune_source_group(experiment: str, group: int) -> tuple[str, int] | None:
+  """Return the experiment/group providing a fine-tune source checkpoint."""
+  if experiment == "exp13":
+    parent_group = exp13_finetune_parent_group(group)
+    return None if parent_group is None else ("exp13", parent_group)
+  if experiment == "exp14":
+    return ("exp13", 5)
   return None
 
 
@@ -345,15 +361,14 @@ def training_source_wandb_path(
   """Resolve implicit parent checkpoints for registered fine-tune groups."""
   if explicit_source is not None:
     return explicit_source
-  if experiment != "exp13":
+  source = finetune_source_group(experiment, group)
+  if source is None:
     return None
-  parent_group = exp13_finetune_parent_group(group)
-  if parent_group is None:
-    return None
-  parent_run_id = resolve_wandb_run_id(experiment, parent_group, wandb_entity)
+  parent_experiment, parent_group = source
+  parent_run_id = resolve_wandb_run_id(parent_experiment, parent_group, wandb_entity)
   if parent_run_id is None:
     raise ValueError(
-      f"Exp13 group {group} requires parent group {parent_group}, but its W&B "
+      f"{experiment} group {group} requires {parent_experiment} group {parent_group}, but its W&B "
       "run id is absent from wandb_run_registry.csv and could not be found. "
       "Train/sync the parent first or pass --source-wandb-path explicitly."
     )
@@ -411,9 +426,7 @@ def train_command(record: dict[str, object]) -> list[str]:
   gpu = int(record["gpu"])
   command = ["bash", SPECS[experiment].train_script, str(group), str(gpu)]
 
-  if experiment == "exp11" or (
-    experiment == "exp13" and exp13_finetune_parent_group(group) is not None
-  ):
+  if experiment == "exp11" or finetune_source_group(experiment, group) is not None:
     source_path = record["source_wandb_path"]
     checkpoint_name = str(record["checkpoint_name"])
     if source_path is None:
@@ -494,7 +507,7 @@ def print_records(show_all: bool) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(
-    description="Launch or replay Exp11/12/13 groups through wandb_run_registry.csv."
+    description="Launch or replay Exp11/12/13/14 groups through wandb_run_registry.csv."
   )
   subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -507,7 +520,7 @@ def build_parser() -> argparse.ArgumentParser:
   train.add_argument("--wandb-entity", default=os.environ.get("WANDB_ENTITY", DEFAULT_WANDB_ENTITY))
   train.add_argument(
     "--source-wandb-path",
-    help="Override the source checkpoint run path for Exp11 or Exp13 fine-tuning.",
+    help="Override the source checkpoint run path for Exp11, Exp13, or Exp14 fine-tuning.",
   )
   train.add_argument("--checkpoint-name", default="model_9999.pt")
 

@@ -305,31 +305,147 @@ def support_foot_tilt_penalty(
   return torch.sum(tilt * in_contact.to(tilt.dtype), dim=1)
 
 
-def static_double_support_force_penalty(
+def static_foot_tilt_penalty(
   env: "ManagerBasedRlEnv",
   command_name: str,
-  sensor_name: str,
-  min_contact_force: float = 80.0,
-  command_threshold: float = 0.2,
+  foot_index: int,
+  command_zero_threshold: float = 0.2,
+  asset_cfg: SceneEntityCfg = _DEFAULT_FEET_ASSET_CFG,
 ) -> torch.Tensor:
-  """Count under-loaded feet while a zero body-velocity command is active.
+  """Return one foot's raw tilt only while a static command is active."""
+  asset = env.scene[asset_cfg.name]
+  body_quat_w = _body_link_quat_w(asset.data)[:, asset_cfg.body_ids]
+  if not 0 <= foot_index < len(asset_cfg.body_ids):
+    raise ValueError(f"foot_index must be in 0..{len(asset_cfg.body_ids) - 1}")
+  local_up = torch.zeros((*body_quat_w.shape[:-1], 3), device=body_quat_w.device)
+  local_up[..., 2] = 1.0
+  foot_up_w = quat_apply(body_quat_w.reshape(-1, 4), local_up.reshape(-1, 3)).reshape_as(
+    local_up
+  )
+  tilt = torch.sum(torch.square(foot_up_w[..., :2]), dim=-1)
+  still = _standstill_mask(env, command_name, command_zero_threshold)
+  return tilt[:, foot_index] * still.to(tilt.dtype)
 
-  Each foot is tested independently against the magnitude of its terrain net
-  contact force. A zero-command environment receives one penalty unit for
-  each foot below ``min_contact_force``.
-  """
+
+def static_double_foot_tilt_multiplier(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  command_zero_threshold: float = 0.2,
+  asset_cfg: SceneEntityCfg = _DEFAULT_FEET_ASSET_CFG,
+) -> torch.Tensor:
+  """Return ``exp(-t_left) * exp(-t_right)`` only for static commands."""
+  asset = env.scene[asset_cfg.name]
+  body_quat_w = _body_link_quat_w(asset.data)[:, asset_cfg.body_ids]
+  local_up = torch.zeros((*body_quat_w.shape[:-1], 3), device=body_quat_w.device)
+  local_up[..., 2] = 1.0
+  foot_up_w = quat_apply(body_quat_w.reshape(-1, 4), local_up.reshape(-1, 3)).reshape_as(
+    local_up
+  )
+  tilt = torch.sum(torch.square(foot_up_w[..., :2]), dim=-1)
+  static_factor = torch.exp(-torch.sum(tilt, dim=1))
+  still = _standstill_mask(env, command_name, command_zero_threshold)
+  return torch.where(still, static_factor, torch.ones_like(static_factor))
+
+
+def _foot_contact_flags(
+  env: "ManagerBasedRlEnv", sensor_name: str, contact_threshold: float
+) -> torch.Tensor:
   contact_sensor = env.scene.sensors[sensor_name]
   force = contact_sensor.data.force
   if force is None:
     msg = f"Contact sensor '{sensor_name}' must include force fields."
     raise RuntimeError(msg)
-
   force_norm = torch.linalg.norm(force, dim=-1)
-  if force_norm.ndim > 2:
-    force_norm = torch.amax(force_norm, dim=tuple(range(2, force_norm.ndim)))
-  under_loaded = force_norm < min_contact_force
-  still = _command_norm(env, command_name) < command_threshold
-  return torch.sum(under_loaded.to(torch.float32), dim=1) * still.to(torch.float32)
+  while force_norm.ndim > 2:
+    force_norm = force_norm.amax(dim=-1)
+  return force_norm > contact_threshold
+
+
+def _rolling_foot_contact_counts(
+  env: "ManagerBasedRlEnv",
+  sensor_name: str,
+  contact_threshold: float,
+  window_seconds: float,
+) -> torch.Tensor:
+  """Maintain per-environment left/right contact counts over a fixed window."""
+  if window_seconds <= 0.0:
+    raise ValueError("window_seconds must be positive")
+  window_steps = max(1, round(window_seconds / env.step_dt))
+  contact = _foot_contact_flags(env, sensor_name, contact_threshold).to(torch.float32)
+  if contact.shape[1] != 2:
+    raise ValueError("Exp14 duty balance requires exactly left and right foot contacts")
+
+  state_name = "_exp14_contact_duty_state"
+  state = getattr(env, state_name, None)
+  if (
+    state is None
+    or state["history"].shape != (env.num_envs, window_steps, 2)
+    or state["history"].device != contact.device
+  ):
+    state = {
+      "history": torch.zeros((env.num_envs, window_steps, 2), device=contact.device),
+      "counts": torch.zeros((env.num_envs, 2), device=contact.device),
+      "last_episode_length": torch.full(
+        (env.num_envs,), -1, device=contact.device, dtype=torch.long
+      ),
+      "cursor": 0,
+    }
+    setattr(env, state_name, state)
+
+  episode_length = env.episode_length_buf
+  reset = episode_length <= state["last_episode_length"]
+  if torch.any(reset):
+    state["history"][reset] = 0.0
+    state["counts"][reset] = 0.0
+
+  cursor = state["cursor"]
+  previous = state["history"][:, cursor].clone()
+  state["history"][:, cursor] = contact
+  state["counts"] += contact - previous
+  state["last_episode_length"] = episode_length.clone()
+  state["cursor"] = (cursor + 1) % window_steps
+  return state["counts"]
+
+
+def moving_foot_contact_duty_error(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  sensor_name: str,
+  contact_threshold: float = 1.0,
+  window_seconds: float = 3.0,
+  command_threshold: float = 0.2,
+) -> torch.Tensor:
+  """Left/right 3-second support-duty imbalance while a movement command is active."""
+  counts = _rolling_foot_contact_counts(
+    env, sensor_name, contact_threshold, window_seconds
+  )
+  left_share = counts[:, 0] / (torch.sum(counts, dim=1) + 1e-6)
+  imbalance = torch.abs(left_share - 0.5)
+  moving = _command_norm(env, command_name) > command_threshold
+  return imbalance * moving.to(imbalance.dtype)
+
+
+def moving_foot_contact_duty_multiplier(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  sensor_name: str,
+  contact_threshold: float = 1.0,
+  window_seconds: float = 3.0,
+  command_threshold: float = 0.2,
+  exp_scale: float = 2.0,
+) -> torch.Tensor:
+  """Return ``exp(-exp_scale * duty_error)`` for movement, one for static."""
+  error = moving_foot_contact_duty_error(
+    env,
+    command_name=command_name,
+    sensor_name=sensor_name,
+    contact_threshold=contact_threshold,
+    window_seconds=window_seconds,
+    command_threshold=command_threshold,
+  )
+  moving = _command_norm(env, command_name) > command_threshold
+  moving_factor = torch.exp(-exp_scale * error)
+  return torch.where(moving, moving_factor, torch.ones_like(moving_factor))
 
 
 def persistent_single_support_penalty(

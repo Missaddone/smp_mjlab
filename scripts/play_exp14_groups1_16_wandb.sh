@@ -4,10 +4,10 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/play_exp13_groups1_27_wandb.sh [--gpu N] [--num-envs N] [--video-length N] \
+  bash scripts/play_exp14_groups1_16_wandb.sh [--gpu N] [--num-envs N] [--video-length N] \
     [--viewer auto|native|viser] <group_number> <wandb_run_path>
 
-Valid group_number values: 1..27
+Valid group_number values: 1..16
 EOF
 }
 
@@ -38,18 +38,17 @@ fi
 GROUP="$1"
 WANDB_RUN_PATH="$2"
 
-if ! [[ "$GROUP" =~ ^([1-9]|1[0-9]|2[0-7])$ ]]; then
-  echo "[ERROR] group_number must be an integer from 1 to 27. Got: $GROUP" >&2
-  usage >&2
+if ! [[ "$GROUP" =~ ^([1-9]|1[0-6])$ ]]; then
+  echo "[ERROR] group_number must be an integer from 1 to 16. Got: $GROUP" >&2
   exit 1
 fi
 
 MUJOCO_GL=egl PYOPENGL_PLATFORM=egl CUDA_VISIBLE_DEVICES="$PLAY_GPU" \
-  uv run scripts/play.py "Smp-BodyVelocity-Exp13-Group${GROUP}-G1" \
+  uv run scripts/play.py "Smp-BodyVelocity-Exp14-Group${GROUP}-G1" \
     --wandb-run-path "$WANDB_RUN_PATH" \
     --num-envs "$NUM_ENVS" \
     --video True \
     --video-length "$VIDEO_LENGTH" \
     --viewer "$VIEWER"
 
-echo "[DONE] exp13_group${GROUP}"
+echo "[DONE] exp14_group${GROUP}"

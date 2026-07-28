@@ -44,7 +44,7 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - Completed: one command lists supported group counts, launches a selected group on a selected GPU in a managed tmux window, and records the generated W&B path locally.
   - Completed: new W&B run ids are generated through `WANDB_RUN_ID`; Exp11's separate source-checkpoint W&B path is preserved for fine-tuning.
   - Completed: added Exp11 one-group playback wrapper so Exp11 evaluation does not require reconstructing a raw `scripts/play.py` command.
-  - Exp13 G22-G27 are implemented: retain each G4/G5/G6 parent and the 80N per-foot tilt/support setup, while sweeping static per-underloaded-foot support weights `-0.05` and `-0.2`.
+  - Exp13 G19-G21 are implemented: retain G4/G5/G6 respectively and add only `-0.05*foot_tilt` for feet above 80N terrain net force.
 - Script lifecycle rule: when an experiment's group range is extended, replace the prior train/play script of the same role rather than retaining an outdated group-range script. Existing unrelated user changes are not removed in this automation task.
 - ONNX export script now exists at `scripts/export_onnx.sh` and accepts any policy checkpoint filename.
 - Dead-zone deployment ONNX export script now exists at `scripts/export_onnx_with_deadzone.sh`; it supports body-velocity `[x,y,yaw]` policies only, accepts any checkpoint file, and writes `<checkpoint_stem>_deadzone.onnx` by default.
@@ -130,10 +130,15 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - For group13-18, SMP reward follows the theme prior because `init_smp_state.ckpt_path` is set to that theme ckpt and `smp_guidance_reward` uses the loaded `_smp_bundle`.
   - scripts: `scripts/analyze_theme_command_ranges.py`, `scripts/run_exp12_prepare_theme_priors.sh`, `scripts/run_exp12_theme_policy_groups1_18.sh`, `scripts/play_exp12_groups1_18_wandb.sh`.
 - Experiment 13 tests body-velocity moving reward product mixes on Exp10 group14/group15, then fine-tunes G4/G5/G6 with foot regularization:
-  - task ids: `Smp-BodyVelocity-Exp13-Group{1..27}-G1`.
+  - task ids: `Smp-BodyVelocity-Exp13-Group{1..21}-G1`.
   - group1-3 inherit Exp10 group14 and use moving weights `(0.5,0.25,0.25)`, `(0.6,0.2,0.2)`, `(0.7,0.15,0.15)`.
   - group4-6 inherit Exp10 group15 with the same moving-weight sweep.
   - only the moving branch changes; command, prior, stop reward, observations, and SMP wrapper stay from the selected Exp10 base group.
   - G7-G18 retain their parent task settings and add, per parent, G20-style `(-0.1 foot tilt, -0.4 persistent support)` or foot-tilt-only `-0.05/-0.2/-0.4`.
-  - G19-G21 retain G4/G5/G6 respectively and add `-0.05*foot_tilt` only for feet over 80N plus `-0.1` for each foot under 80N while static. G22-G27 retain the same 80N setup and sweep the static per-underloaded-foot weight `-0.05/-0.2` for each parent.
-  - scripts: `scripts/run_exp13_groups1_27.sh`, `scripts/play_exp13_groups1_27_wandb.sh`.
+  - G19-G21 retain G4/G5/G6 respectively and add only `-0.05*foot_tilt` for each foot over 80N.
+  - scripts: `scripts/run_exp13_groups1_21.sh`, `scripts/play_exp13_groups1_21_wandb.sh`.
+- Experiment 14 is implemented with 16 independent fine-tuning tasks. It uses only Exp13 G5 `model_9999.pt`; no Exp13 G4/G6 parent is used. Each reward configuration has separate 3000- and 6000-iteration variants, both starting from G5.
+  - Phase 1, static flat-foot ablations: static branch only. Per-foot raw tilt is `t_i = ||(R(q_i)e_z)_{xy}||^2 = sin^2(theta_i)`. Additive `R=R0-w(t_L+t_R)` uses `w={0.2,0.5,1.0}` (three groups). Multiplicative `R=R0*exp(-t_L)*exp(-t_R)` is one fixed-strength group; it has no independent additive weight.
+  - Phase 2, moving duty-balance ablations: 3-second fixed contact-history window with force threshold `1N`, active only under non-static command. Compare exponential `R=R0*exp(-2*d)` (one configuration) and additive `R=R0-w_g*d` with `w_g={0.05,0.1,0.2}` (three configurations). This measures left/right support-duty balance, not actual cadence/frequency.
+  - `1N` was deliberately selected over `80N`: a still-tiptoeing foot can be lightly loaded while the other foot carries most weight, and must remain represented in the duty statistic.
+  - The combined tilt+duty reward phase is deliberately deferred until Phase 1 and 2 results select viable strengths.

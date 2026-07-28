@@ -309,9 +309,16 @@
 - Moving reward formula: `r_move = k1*r_l*r_y + k2*r_l + k3*r_y`, with `r_l=exp(-2*||v_xy_body-v_xy_cmd||^2)` and `r_y=exp(-1*(yaw_rate_body-yaw_cmd)^2)`.
 - Group1-3 inherit Exp10 group14 and sweep `(k1,k2,k3)` as `(0.5,0.25,0.25)`, `(0.6,0.2,0.2)`, `(0.7,0.15,0.15)`.
 - Group4-6 inherit Exp10 group15 with the same sweep.
-- Exp13 G19-G21 each retain G4/G5/G6 respectively, use a per-foot 80N tilt-contact threshold, and add `-0.1` for each foot below 80N only when `||command|| < 0.2`; their tilt weight is `-0.05`. G22-G27 repeat the same setup with static per-underloaded-foot weights `-0.05/-0.2` for each parent G4/G5/G6.
-- Scripts: `scripts/run_exp13_groups1_27.sh` and `scripts/play_exp13_groups1_27_wandb.sh`.
+- Exp13 G19-G21 each retain G4/G5/G6 respectively and add only `-0.05*support_foot_tilt_penalty`, whose per-foot mask is terrain net force above 80N. There is no static under-loaded-foot force reward.
+- Scripts: `scripts/run_exp13_groups1_21.sh` and `scripts/play_exp13_groups1_21_wandb.sh`.
 - Generic policy export script: `scripts/export_onnx.sh`; it exports any policy checkpoint to a same-directory `.onnx` file. The separate `scripts/export_onnx_with_deadzone.sh` is only for body-velocity configs trained with a command dead zone.
+
+## Experiment 14 Planned Static Flat-Foot And Gait-Duty Ablations
+- Exact my-dev raw per-foot tilt implementation is `support_foot_tilt_penalty` in `my-dev:src/smp/rl/tasks/steering/mdp/rewards.py`: it rotates local foot up vector `e_z=[0,0,1]` by the foot world quaternion, computes `t_i=u_{i,x}^2+u_{i,y}^2`, then sums contact-masked feet. Thus `t_i=sin^2(theta_i)`, where `theta_i` is the sole-up-vector angle from world vertical; `t_i=0` when flat and approaches 1 at 90 degrees. It is a raw penalty, not an exponential reward.
+- For Exp14 static flat-foot reward, compute the two feet separately. Additive form should use raw `t_L,t_R`; multiplicative form should convert them to `r_tilt_i=exp(-k*t_i)`. Previous additive weights `0.05/0.1/0.2` cannot be reused unchanged as exponential `k` values because their effects differ by orders of magnitude; recommended initial multiplicative grid is `k=1,2,4`.
+- A windowed ratio `C_L/(C_L+C_R)` with `C_i=sum_j 1[F_i(j)>F_threshold]` measures left/right contact-duty balance. `|C_L/(C_L+C_R)-0.5|` is zero for balanced support, including double support; it does not constrain cycle duration or step frequency. Gate it to moving commands so static double support is not penalized.
+- Current contact sensor infrastructure has `track_air_time=True` and gives continuous `current_contact_time`, but no fixed rolling left/right contact-window accumulator. A true fixed-window duty ratio needs a small per-environment history/state buffer in the reward/command-side implementation; do not misuse `persistent_single_support_penalty`, which only reads continuous current contact duration.
+- Exp14 uses its own `exp14_feet_ground_contact` net-force sensor and a reset-aware per-environment ring buffer in `body_velocity/mdp/rewards.py`. The buffer stores 3 seconds of left/right boolean contact flags with `F>1N`; it resets independently when an environment episode resets. It is used by exactly one gait reward term per task, so the history advances once per simulation step.
 
 ## Experiment Launch Automation
 - `mjlab.scripts.train` exposes W&B project/name/tags but no CLI field for a new W&B run id.

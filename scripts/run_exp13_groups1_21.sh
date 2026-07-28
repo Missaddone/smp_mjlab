@@ -4,16 +4,13 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/run_exp13_groups1_27.sh <group> <gpu> [parent_wandb_run_path] [checkpoint_name]
+  bash scripts/run_exp13_groups1_21.sh <group> <gpu> [parent_wandb_run_path] [checkpoint_name]
 
 Groups 1-6 train from scratch for 10000 iterations.
-Groups 7-27 fine-tune for 3000 iterations and require their parent W&B path:
-  7-10, 19, 22-23 <- Exp13 G4
-  11-14, 20, 24-25 <- Exp13 G5
-  15-18, 21, 26-27 <- Exp13 G6
+Groups 7-21 fine-tune for 3000 iterations and require their parent W&B path:
+  7-10, 19 <- Exp13 G4; 11-14, 20 <- Exp13 G5; 15-18, 21 <- Exp13 G6.
 
-Groups 19-27 use -0.05 foot tilt only above 80N per foot, plus a static
-per-under-80N-foot penalty. G19-G21 use -0.1; G22-G27 sweep -0.05 and -0.2.
+Groups 19-21 add only -0.05 foot tilt for each foot with terrain net force above 80N.
 EOF
 }
 
@@ -51,17 +48,11 @@ case "$GROUP" in
   16) RUN_NAME="group16_finetune_exp13_g6_foot_tilt_w005"; ITERATIONS=3000 ;;
   17) RUN_NAME="group17_finetune_exp13_g6_foot_tilt_w020"; ITERATIONS=3000 ;;
   18) RUN_NAME="group18_finetune_exp13_g6_foot_tilt_w040"; ITERATIONS=3000 ;;
-  19) RUN_NAME="group19_finetune_exp13_g4_foot_tilt80_static_double_support80"; ITERATIONS=3000 ;;
-  20) RUN_NAME="group20_finetune_exp13_g5_foot_tilt80_static_double_support80"; ITERATIONS=3000 ;;
-  21) RUN_NAME="group21_finetune_exp13_g6_foot_tilt80_static_double_support80"; ITERATIONS=3000 ;;
-  22) RUN_NAME="group22_finetune_exp13_g4_foot_tilt80_static_double_support80_w005"; ITERATIONS=3000 ;;
-  23) RUN_NAME="group23_finetune_exp13_g4_foot_tilt80_static_double_support80_w020"; ITERATIONS=3000 ;;
-  24) RUN_NAME="group24_finetune_exp13_g5_foot_tilt80_static_double_support80_w005"; ITERATIONS=3000 ;;
-  25) RUN_NAME="group25_finetune_exp13_g5_foot_tilt80_static_double_support80_w020"; ITERATIONS=3000 ;;
-  26) RUN_NAME="group26_finetune_exp13_g6_foot_tilt80_static_double_support80_w005"; ITERATIONS=3000 ;;
-  27) RUN_NAME="group27_finetune_exp13_g6_foot_tilt80_static_double_support80_w020"; ITERATIONS=3000 ;;
+  19) RUN_NAME="group19_finetune_exp13_g4_foot_tilt80"; ITERATIONS=3000 ;;
+  20) RUN_NAME="group20_finetune_exp13_g5_foot_tilt80"; ITERATIONS=3000 ;;
+  21) RUN_NAME="group21_finetune_exp13_g6_foot_tilt80"; ITERATIONS=3000 ;;
   *)
-    echo "[ERROR] group must be an integer from 1 to 27. Got: $GROUP" >&2
+    echo "[ERROR] group must be an integer from 1 to 21. Got: $GROUP" >&2
     exit 2
     ;;
 esac

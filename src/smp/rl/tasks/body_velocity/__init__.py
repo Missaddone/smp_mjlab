@@ -39,6 +39,9 @@ from smp.rl.tasks.body_velocity.body_velocity_exp12_env_cfg import (
 from smp.rl.tasks.body_velocity.body_velocity_exp13_env_cfg import (
   EXP13_BODY_VELOCITY_BUILDERS,
 )
+from smp.rl.tasks.body_velocity.body_velocity_exp14_env_cfg import (
+  EXP14_BODY_VELOCITY_BUILDERS,
+)
 
 
 def _runner(experiment_name: str, run_name: str | None = None):
@@ -126,11 +129,24 @@ for _group, _env_builder, _spec in EXP13_BODY_VELOCITY_BUILDERS:
     rl_cfg=_rl,
   )
 
+for _group, _env_builder, _spec in EXP14_BODY_VELOCITY_BUILDERS:
+  _rl = _runner(
+    "smp_exp14_body_velocity_flatfoot_duty",
+    run_name=_spec.run_name,
+  )
+  register_mjlab_task(
+    task_id=f"Smp-BodyVelocity-Exp14-Group{_group}-G1",
+    env_cfg=_env_builder(play=False),
+    play_env_cfg=_env_builder(play=True),
+    rl_cfg=_rl,
+  )
+
 __all__ = [
   "EXP10_BODY_VELOCITY_BUILDERS",
   "EXP11_BODY_VELOCITY_BUILDERS",
   "EXP12_BODY_VELOCITY_BUILDERS",
   "EXP13_BODY_VELOCITY_BUILDERS",
+  "EXP14_BODY_VELOCITY_BUILDERS",
   "g1_body_velocity_exp4_group1_smp_env_cfg",
   "g1_body_velocity_exp4_group2_smp_env_cfg",
   "g1_body_velocity_exp4_group3_smp_env_cfg",

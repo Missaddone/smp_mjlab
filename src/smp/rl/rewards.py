@@ -106,6 +106,20 @@ def body_velocity_task_smp_product(
   return task * smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
 
 
+def body_velocity_task_smp_product_with_multiplier(
+  env: ManagerBasedRlEnv,
+  task_terms: tuple[TaskTerm, ...],
+  multiplier_func: "Callable[..., torch.Tensor]",
+  multiplier_params: dict,
+  fixed_timesteps: tuple[int, ...] = (8, 15, 22),
+  ws: float = 6.0,
+) -> torch.Tensor:
+  """Apply a task-specific conditional multiplier after ``r_task * r_smp``."""
+  task = sum(w * func(env, **kw) for func, w, kw in task_terms)
+  origin = task * smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)
+  return origin * multiplier_func(env, **multiplier_params)
+
+
 def body_velocity_task_smp_mix(
   env: ManagerBasedRlEnv,
   linear_reward_func: "Callable[..., torch.Tensor]",
