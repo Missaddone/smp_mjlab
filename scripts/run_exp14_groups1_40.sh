@@ -6,8 +6,9 @@ usage() {
 Usage:
   bash scripts/run_exp14_groups1_40.sh <group> <gpu> <source_wandb_run_path> [checkpoint_name]
 
-Groups 1-30 independently fine-tune Exp13 G5. Groups 31-40 fine-tune the
-specified Exp14 G17/G20-G23 source. All use model_9999.pt by default.
+Groups 1-30 independently fine-tune Exp13 G5 from model_9999.pt. Groups
+31-40 fine-tune the specified Exp14 G17/G20-G23 source from that parent's
+final model_12998.pt or model_15998.pt checkpoint.
 
 Groups:
   1-16  Existing Exp14 static-flat-foot and 3-second contact-duty ablations.
@@ -33,7 +34,7 @@ fi
 GROUP="$1"
 GPU="$2"
 SOURCE_WANDB_PATH="$3"
-CHECKPOINT_NAME="${4:-model_9999.pt}"
+REQUESTED_CHECKPOINT_NAME="${4:-}"
 
 case "$GROUP" in
   1) RUN_NAME="group01_finetune_exp13_g5_static_tilt_add_w0.2_iter3000"; ITERATIONS=3000 ;;
@@ -81,6 +82,13 @@ case "$GROUP" in
     exit 2
     ;;
 esac
+
+case "$GROUP" in
+  31|32|35|36|39|40) DEFAULT_CHECKPOINT_NAME="model_12998.pt" ;;
+  33|34|37|38) DEFAULT_CHECKPOINT_NAME="model_15998.pt" ;;
+  *) DEFAULT_CHECKPOINT_NAME="model_9999.pt" ;;
+esac
+CHECKPOINT_NAME="${REQUESTED_CHECKPOINT_NAME:-$DEFAULT_CHECKPOINT_NAME}"
 
 WANDB_INIT_TIMEOUT="${WANDB_INIT_TIMEOUT:-300}" CUDA_VISIBLE_DEVICES="$GPU" \
 uv run scripts/train.py "Smp-BodyVelocity-Exp14-Group${GROUP}-G1" \

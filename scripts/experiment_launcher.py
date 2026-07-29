@@ -29,6 +29,30 @@ WANDB_EXPERIMENT_NAMES = {
   "exp14": "smp_exp14_body_velocity_flatfoot_duty",
 }
 WandbRegistryRow = dict[str, str]
+EXP14_SECOND_STAGE_PARENT_GROUPS = {
+  31: 17,
+  32: 17,
+  33: 20,
+  34: 20,
+  35: 21,
+  36: 21,
+  37: 22,
+  38: 22,
+  39: 23,
+  40: 23,
+}
+EXP14_SECOND_STAGE_CHECKPOINTS = {
+  31: "model_12998.pt",
+  32: "model_12998.pt",
+  33: "model_15998.pt",
+  34: "model_15998.pt",
+  35: "model_12998.pt",
+  36: "model_12998.pt",
+  37: "model_15998.pt",
+  38: "model_15998.pt",
+  39: "model_12998.pt",
+  40: "model_12998.pt",
+}
 
 
 @dataclass(frozen=True)
@@ -348,22 +372,17 @@ def finetune_source_group(experiment: str, group: int) -> tuple[str, int] | None
     parent_group = exp13_finetune_parent_group(group)
     return None if parent_group is None else ("exp13", parent_group)
   if experiment == "exp14":
-    second_stage_parent_groups = {
-      31: 17,
-      32: 17,
-      33: 20,
-      34: 20,
-      35: 21,
-      36: 21,
-      37: 22,
-      38: 22,
-      39: 23,
-      40: 23,
-    }
-    if group in second_stage_parent_groups:
-      return ("exp14", second_stage_parent_groups[group])
+    if group in EXP14_SECOND_STAGE_PARENT_GROUPS:
+      return ("exp14", EXP14_SECOND_STAGE_PARENT_GROUPS[group])
     return ("exp13", 5)
   return None
+
+
+def default_checkpoint_name(experiment: str, group: int) -> str:
+  """Return the final checkpoint for each planned fine-tune source."""
+  if experiment == "exp14":
+    return EXP14_SECOND_STAGE_CHECKPOINTS.get(group, "model_9999.pt")
+  return "model_9999.pt"
 
 
 def training_source_wandb_path(
@@ -536,7 +555,10 @@ def build_parser() -> argparse.ArgumentParser:
     "--source-wandb-path",
     help="Override the source checkpoint run path for Exp11, Exp13, or Exp14 fine-tuning.",
   )
-  train.add_argument("--checkpoint-name", default="model_9999.pt")
+  train.add_argument(
+    "--checkpoint-name",
+    help="Override the source checkpoint name; defaults to the planned parent final checkpoint.",
+  )
 
   play = subparsers.add_parser("play", help="Replay a group resolved from wandb_run_registry.csv.")
   play.add_argument("experiment", choices=sorted(SPECS))
@@ -580,7 +602,7 @@ def main() -> int:
         args.gpu,
         args.wandb_entity,
         source_wandb_path,
-        args.checkpoint_name,
+        args.checkpoint_name or default_checkpoint_name(args.experiment, args.group),
       )
     except ValueError as error:
       print(f"[ERROR] {error}", file=sys.stderr)

@@ -54,6 +54,10 @@ bash scripts/run_exp14_groups1_40.sh <group> <gpu> \
 For G1-G30 the launcher resolves Exp13 G5; for G31-G40 it resolves the
 corresponding Exp14 parent automatically:
 
+G31/32, G35/36, and G39/40 resume their parent's `model_12998.pt`; G33/34
+and G37/38 resume `model_15998.pt`. These are the parent runs' final
+checkpoints, not the original Exp13 `model_9999.pt`.
+
 ```bash
 uv run scripts/experiment_launcher.py train exp14 <group> --gpu <gpu>
 ```
