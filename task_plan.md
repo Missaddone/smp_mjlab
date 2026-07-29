@@ -143,5 +143,5 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - `1N` was deliberately selected over `80N`: a still-tiptoeing foot can be lightly loaded while the other foot carries most weight, and must remain represented in the duty statistic.
   - G17-G24: moving raw tilt applies only to per-foot support mask `F>1N AND current_contact_time>0.04/0.06s`; tilt weights are `-0.1/-0.2`.
   - G25-G30: moving raw tilt applies only to the foot with larger terrain net-force magnitude, provided `F_max>1N`; tilt weights are `-0.1/-0.2/-0.4`.
-  - G17-G30 intentionally exclude all Exp14 static double-foot tilt terms. Canonical scripts are `scripts/run_exp14_groups1_30.sh` and `scripts/play_exp14_groups1_30_wandb.sh`.
+  - G17-G30 intentionally exclude all Exp14 static double-foot tilt terms. G31-G40 are second-stage fine-tunes from G17/G20-G23, retaining each moving support-foot term and adding G1's static `-0.2*(t_left+t_right)` penalty. They compare 1000 and 3000 iterations. Canonical scripts are `scripts/run_exp14_groups1_40.sh` and `scripts/play_exp14_groups1_40_wandb.sh`.
   - The combined tilt+duty reward phase is deliberately deferred until Phase 1 and 2 results select viable strengths.

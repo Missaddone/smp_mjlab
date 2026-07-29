@@ -35,6 +35,8 @@ class Exp14BodyVelocityGroupSpec:
   min_contact_time: float | None
   run_name: str
   summary: str
+  source_group: int | None = None
+  static_strength: float | None = None
 
 
 def _make_specs() -> tuple[Exp14BodyVelocityGroupSpec, ...]:
@@ -162,6 +164,39 @@ def _make_specs() -> tuple[Exp14BodyVelocityGroupSpec, ...]:
         )
       )
       group += 1
+
+  # Second-stage fine-tunes: retain the selected moving support-foot penalty
+  # and add the successful G1 static double-foot flatness term.
+  for source_group, min_contact_time, strength in (
+    (17, 0.04, 0.1),
+    (20, 0.04, 0.2),
+    (21, 0.06, 0.1),
+    (22, 0.06, 0.1),
+    (23, 0.06, 0.2),
+  ):
+    for iterations in (1000, 3000):
+      specs.append(
+        Exp14BodyVelocityGroupSpec(
+          group=group,
+          kind="moving_debounced_support_tilt_with_static_tilt",
+          iterations=iterations,
+          strength=strength,
+          min_contact_time=min_contact_time,
+          source_group=source_group,
+          static_strength=0.2,
+          run_name=(
+            f"group{group:02d}_finetune_exp14_g{source_group}_support_tilt_"
+            f"debounce{min_contact_time:g}_w{strength:g}_static_tilt_w0.2_"
+            f"iter{iterations}"
+          ),
+          summary=(
+            f"Fine-tune Exp14 G{source_group}; moving F>1N, "
+            f"contact>{min_contact_time:g}s, -{strength:g}*support_tilt; "
+            f"static -0.2*(t_left+t_right); {iterations} iterations"
+          ),
+        )
+      )
+      group += 1
   return tuple(specs)
 
 
@@ -260,6 +295,29 @@ def _build_exp14_body_velocity_cfg(
     assert spec.strength is not None
     assert spec.min_contact_time is not None
     _append_feet_contact_sensor(cfg, track_air_time=True)
+    cfg.rewards["moving_debounced_support_foot_tilt"] = RewardTermCfg(
+      func=mdp.moving_debounced_support_foot_tilt_penalty,
+      weight=-spec.strength,
+      params={
+        "command_name": "body_velocity",
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "contact_threshold": _GAIT_CONTACT_THRESHOLD,
+        "min_contact_time": spec.min_contact_time,
+        "command_threshold": _STATIC_COMMAND_THRESHOLD,
+        "asset_cfg": feet_cfg,
+      },
+    )
+  elif spec.kind == "moving_debounced_support_tilt_with_static_tilt":
+    assert spec.strength is not None
+    assert spec.static_strength is not None
+    assert spec.min_contact_time is not None
+    _append_feet_contact_sensor(cfg, track_air_time=True)
+    for foot_index, foot_name in enumerate(("left", "right")):
+      cfg.rewards[f"static_{foot_name}_foot_tilt"] = RewardTermCfg(
+        func=mdp.static_foot_tilt_penalty,
+        weight=-spec.static_strength,
+        params={**static_params, "foot_index": foot_index},
+      )
     cfg.rewards["moving_debounced_support_foot_tilt"] = RewardTermCfg(
       func=mdp.moving_debounced_support_foot_tilt_penalty,
       weight=-spec.strength,

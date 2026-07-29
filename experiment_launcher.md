@@ -19,7 +19,7 @@ command -v uv
 
 uv run scripts/experiment_launcher.py train exp11 9 --gpu 3
 uv run scripts/experiment_launcher.py train exp13 4 --gpu 5
-uv run scripts/experiment_launcher.py train exp14 1 --gpu 6
+uv run scripts/experiment_launcher.py train exp14 31 --gpu 6
 ```
 
 Use `Ctrl-b c` to create another tmux window, then launch one selected group

@@ -55,9 +55,9 @@ SPECS = {
     play_script="scripts/play_exp13_groups1_21_wandb.sh",
   ),
   "exp14": ExperimentSpec(
-    max_group=30,
-    train_script="scripts/run_exp14_groups1_30.sh",
-    play_script="scripts/play_exp14_groups1_30_wandb.sh",
+    max_group=40,
+    train_script="scripts/run_exp14_groups1_40.sh",
+    play_script="scripts/play_exp14_groups1_40_wandb.sh",
   ),
 }
 
@@ -348,6 +348,20 @@ def finetune_source_group(experiment: str, group: int) -> tuple[str, int] | None
     parent_group = exp13_finetune_parent_group(group)
     return None if parent_group is None else ("exp13", parent_group)
   if experiment == "exp14":
+    second_stage_parent_groups = {
+      31: 17,
+      32: 17,
+      33: 20,
+      34: 20,
+      35: 21,
+      36: 21,
+      37: 22,
+      38: 22,
+      39: 23,
+      40: 23,
+    }
+    if group in second_stage_parent_groups:
+      return ("exp14", second_stage_parent_groups[group])
     return ("exp13", 5)
   return None
 
