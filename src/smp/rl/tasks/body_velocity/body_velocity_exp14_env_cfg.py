@@ -32,6 +32,7 @@ class Exp14BodyVelocityGroupSpec:
   kind: str
   iterations: int
   strength: float | None
+  min_contact_time: float | None
   run_name: str
   summary: str
 
@@ -47,6 +48,7 @@ def _make_specs() -> tuple[Exp14BodyVelocityGroupSpec, ...]:
           kind="static_tilt_additive",
           iterations=iterations,
           strength=strength,
+          min_contact_time=None,
           run_name=(
             f"group{group:02d}_finetune_exp13_g5_static_tilt_add_w{strength:g}_"
             f"iter{iterations}"
@@ -66,6 +68,7 @@ def _make_specs() -> tuple[Exp14BodyVelocityGroupSpec, ...]:
         kind="static_tilt_product",
         iterations=iterations,
         strength=None,
+        min_contact_time=None,
         run_name=f"group{group:02d}_finetune_exp13_g5_static_tilt_product_iter{iterations}",
         summary=(
           "Fine-tune Exp13 G5; static only: "
@@ -82,6 +85,7 @@ def _make_specs() -> tuple[Exp14BodyVelocityGroupSpec, ...]:
         kind="gait_duty_product",
         iterations=iterations,
         strength=_GAIT_EXP_SCALE,
+        min_contact_time=None,
         run_name=(
           f"group{group:02d}_finetune_exp13_g5_gait_duty_exp_k{_GAIT_EXP_SCALE:g}_"
           f"iter{iterations}"
@@ -102,6 +106,7 @@ def _make_specs() -> tuple[Exp14BodyVelocityGroupSpec, ...]:
           kind="gait_duty_additive",
           iterations=iterations,
           strength=strength,
+          min_contact_time=None,
           run_name=(
             f"group{group:02d}_finetune_exp13_g5_gait_duty_add_w{strength:g}_"
             f"iter{iterations}"
@@ -109,6 +114,50 @@ def _make_specs() -> tuple[Exp14BodyVelocityGroupSpec, ...]:
           summary=(
             "Fine-tune Exp13 G5; moving only: "
             f"R=R0-{strength:g}*duty_error, 3s/1N; {iterations} iterations"
+          ),
+        )
+      )
+      group += 1
+
+  for min_contact_time in (0.04, 0.06):
+    for strength in (0.1, 0.2):
+      for iterations in (3000, 6000):
+        specs.append(
+          Exp14BodyVelocityGroupSpec(
+            group=group,
+            kind="moving_debounced_support_tilt",
+            iterations=iterations,
+            strength=strength,
+            min_contact_time=min_contact_time,
+            run_name=(
+              f"group{group:02d}_finetune_exp13_g5_support_tilt_"
+              f"debounce{min_contact_time:g}_w{strength:g}_iter{iterations}"
+            ),
+            summary=(
+              "Fine-tune Exp13 G5; moving only: "
+              f"F>1N, contact>{min_contact_time:g}s, -{strength:g}*support_tilt; "
+              f"{iterations} iterations"
+            ),
+          )
+        )
+        group += 1
+
+  for strength in (0.1, 0.2, 0.4):
+    for iterations in (3000, 6000):
+      specs.append(
+        Exp14BodyVelocityGroupSpec(
+          group=group,
+          kind="moving_max_force_tilt",
+          iterations=iterations,
+          strength=strength,
+          min_contact_time=None,
+          run_name=(
+            f"group{group:02d}_finetune_exp13_g5_max_force_tilt_"
+            f"w{strength:g}_iter{iterations}"
+          ),
+          summary=(
+            "Fine-tune Exp13 G5; moving only: "
+            f"F_max>1N, -{strength:g}*tilt_of_max_force_foot; {iterations} iterations"
           ),
         )
       )
@@ -123,7 +172,9 @@ def _parent_spec():
   return next(spec for spec in EXP13_BODY_VELOCITY_GROUP_SPECS if spec.group == _PARENT_GROUP)
 
 
-def _append_feet_contact_sensor(cfg: ManagerBasedRlEnvCfg) -> None:
+def _append_feet_contact_sensor(
+  cfg: ManagerBasedRlEnvCfg, *, track_air_time: bool
+) -> None:
   if any(sensor.name == _FEET_CONTACT_SENSOR for sensor in cfg.scene.sensors):
     return
   cfg.scene.sensors = (
@@ -136,10 +187,10 @@ def _append_feet_contact_sensor(cfg: ManagerBasedRlEnvCfg) -> None:
         entity="robot",
       ),
       secondary=ContactMatch(mode="body", pattern="terrain"),
-      fields=("force",),
+      fields=("found", "force") if track_air_time else ("force",),
       reduce="netforce",
       num_slots=1,
-      track_air_time=False,
+      track_air_time=track_air_time,
     ),
   )
 
@@ -191,7 +242,7 @@ def _build_exp14_body_velocity_cfg(
       static_params,
     )
   elif spec.kind == "gait_duty_product":
-    _append_feet_contact_sensor(cfg)
+    _append_feet_contact_sensor(cfg, track_air_time=False)
     _replace_task_smp_product_with_multiplier(
       cfg,
       mdp.moving_foot_contact_duty_multiplier,
@@ -199,11 +250,41 @@ def _build_exp14_body_velocity_cfg(
     )
   elif spec.kind == "gait_duty_additive":
     assert spec.strength is not None
-    _append_feet_contact_sensor(cfg)
+    _append_feet_contact_sensor(cfg, track_air_time=False)
     cfg.rewards["moving_foot_contact_duty"] = RewardTermCfg(
       func=mdp.moving_foot_contact_duty_error,
       weight=-spec.strength,
       params=duty_params,
+    )
+  elif spec.kind == "moving_debounced_support_tilt":
+    assert spec.strength is not None
+    assert spec.min_contact_time is not None
+    _append_feet_contact_sensor(cfg, track_air_time=True)
+    cfg.rewards["moving_debounced_support_foot_tilt"] = RewardTermCfg(
+      func=mdp.moving_debounced_support_foot_tilt_penalty,
+      weight=-spec.strength,
+      params={
+        "command_name": "body_velocity",
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "contact_threshold": _GAIT_CONTACT_THRESHOLD,
+        "min_contact_time": spec.min_contact_time,
+        "command_threshold": _STATIC_COMMAND_THRESHOLD,
+        "asset_cfg": feet_cfg,
+      },
+    )
+  elif spec.kind == "moving_max_force_tilt":
+    assert spec.strength is not None
+    _append_feet_contact_sensor(cfg, track_air_time=False)
+    cfg.rewards["moving_max_force_foot_tilt"] = RewardTermCfg(
+      func=mdp.moving_max_force_foot_tilt_penalty,
+      weight=-spec.strength,
+      params={
+        "command_name": "body_velocity",
+        "sensor_name": _FEET_CONTACT_SENSOR,
+        "contact_threshold": _GAIT_CONTACT_THRESHOLD,
+        "command_threshold": _STATIC_COMMAND_THRESHOLD,
+        "asset_cfg": feet_cfg,
+      },
     )
   else:
     raise ValueError(f"Unsupported Exp14 reward kind: {spec.kind}")

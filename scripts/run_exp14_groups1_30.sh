@@ -4,15 +4,16 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/run_exp14_groups1_16.sh <group> <gpu> <exp13_g5_wandb_run_path> [checkpoint_name]
+  bash scripts/run_exp14_groups1_30.sh <group> <gpu> <exp13_g5_wandb_run_path> [checkpoint_name]
 
 All groups independently fine-tune Exp13 G5 from model_9999.pt by default.
 
 Groups:
-  1-6   static additive per-foot tilt: w=0.2, 0.5, 1.0 (3000/6000 each)
-  7-8   static product: R0*exp(-t_left)*exp(-t_right) (3000/6000)
-  9-10  moving 3s/1N contact-duty product: R0*exp(-2*duty_error) (3000/6000)
- 11-16  moving 3s/1N contact-duty additive: w=0.05, 0.1, 0.2 (3000/6000 each)
+  1-16  Existing Exp14 static-flat-foot and 3-second contact-duty ablations.
+ 17-24  Moving support-foot tilt: F > 1N and 40/60ms contact debounce,
+        w_tilt = 0.1/0.2 (3000/6000 each).
+ 25-30  Moving max-force-foot tilt: F_max > 1N, w_tilt = 0.1/0.2/0.4
+        (3000/6000 each).
 EOF
 }
 
@@ -48,8 +49,22 @@ case "$GROUP" in
   14) RUN_NAME="group14_finetune_exp13_g5_gait_duty_add_w0.1_iter6000"; ITERATIONS=6000 ;;
   15) RUN_NAME="group15_finetune_exp13_g5_gait_duty_add_w0.2_iter3000"; ITERATIONS=3000 ;;
   16) RUN_NAME="group16_finetune_exp13_g5_gait_duty_add_w0.2_iter6000"; ITERATIONS=6000 ;;
+  17) RUN_NAME="group17_finetune_exp13_g5_support_tilt_debounce0.04_w0.1_iter3000"; ITERATIONS=3000 ;;
+  18) RUN_NAME="group18_finetune_exp13_g5_support_tilt_debounce0.04_w0.1_iter6000"; ITERATIONS=6000 ;;
+  19) RUN_NAME="group19_finetune_exp13_g5_support_tilt_debounce0.04_w0.2_iter3000"; ITERATIONS=3000 ;;
+  20) RUN_NAME="group20_finetune_exp13_g5_support_tilt_debounce0.04_w0.2_iter6000"; ITERATIONS=6000 ;;
+  21) RUN_NAME="group21_finetune_exp13_g5_support_tilt_debounce0.06_w0.1_iter3000"; ITERATIONS=3000 ;;
+  22) RUN_NAME="group22_finetune_exp13_g5_support_tilt_debounce0.06_w0.1_iter6000"; ITERATIONS=6000 ;;
+  23) RUN_NAME="group23_finetune_exp13_g5_support_tilt_debounce0.06_w0.2_iter3000"; ITERATIONS=3000 ;;
+  24) RUN_NAME="group24_finetune_exp13_g5_support_tilt_debounce0.06_w0.2_iter6000"; ITERATIONS=6000 ;;
+  25) RUN_NAME="group25_finetune_exp13_g5_max_force_tilt_w0.1_iter3000"; ITERATIONS=3000 ;;
+  26) RUN_NAME="group26_finetune_exp13_g5_max_force_tilt_w0.1_iter6000"; ITERATIONS=6000 ;;
+  27) RUN_NAME="group27_finetune_exp13_g5_max_force_tilt_w0.2_iter3000"; ITERATIONS=3000 ;;
+  28) RUN_NAME="group28_finetune_exp13_g5_max_force_tilt_w0.2_iter6000"; ITERATIONS=6000 ;;
+  29) RUN_NAME="group29_finetune_exp13_g5_max_force_tilt_w0.4_iter3000"; ITERATIONS=3000 ;;
+  30) RUN_NAME="group30_finetune_exp13_g5_max_force_tilt_w0.4_iter6000"; ITERATIONS=6000 ;;
   *)
-    echo "[ERROR] group must be an integer from 1 to 16. Got: $GROUP" >&2
+    echo "[ERROR] group must be an integer from 1 to 30. Got: $GROUP" >&2
     exit 2
     ;;
 esac

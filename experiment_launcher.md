@@ -26,7 +26,7 @@ Use `Ctrl-b c` to create another tmux window, then launch one selected group
 on its chosen GPU in that window. The launcher no longer creates, attaches to,
 or manages tmux sessions.
 
-The command prints and records the new W&B path. For Exp11, the script still uses its built-in Exp10 group14/group15 source checkpoint unless explicitly overridden. For Exp13 groups 7-18, the launcher automatically resolves the registered parent group (G4, G5, or G6) from `wandb_run_registry.csv` and W&B. Exp14 groups 1-16 automatically resolve Exp13 G5:
+The command prints and records the new W&B path. For Exp11, the script still uses its built-in Exp10 group14/group15 source checkpoint unless explicitly overridden. For Exp13 groups 7-18, the launcher automatically resolves the registered parent group (G4, G5, or G6) from `wandb_run_registry.csv` and W&B. Exp14 groups 1-30 automatically resolve Exp13 G5:
 
 ```bash
 uv run scripts/experiment_launcher.py train exp11 25 --gpu 2 \

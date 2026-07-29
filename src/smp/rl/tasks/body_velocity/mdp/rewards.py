@@ -294,6 +294,14 @@ def support_foot_tilt_penalty(
   if in_contact.ndim > 2:
     in_contact = in_contact.any(dim=tuple(range(2, in_contact.ndim)))
 
+  tilt = _per_foot_tilt(env, asset_cfg)
+  return torch.sum(tilt * in_contact.to(tilt.dtype), dim=1)
+
+
+def _per_foot_tilt(
+  env: "ManagerBasedRlEnv", asset_cfg: SceneEntityCfg
+) -> torch.Tensor:
+  """Return raw ``sin^2(theta)`` tilt for each configured foot body."""
   asset = env.scene[asset_cfg.name]
   body_quat_w = _body_link_quat_w(asset.data)[:, asset_cfg.body_ids]
   local_up = torch.zeros((*body_quat_w.shape[:-1], 3), device=body_quat_w.device)
@@ -301,8 +309,7 @@ def support_foot_tilt_penalty(
   foot_up_w = quat_apply(body_quat_w.reshape(-1, 4), local_up.reshape(-1, 3)).reshape_as(
     local_up
   )
-  tilt = torch.sum(torch.square(foot_up_w[..., :2]), dim=-1)
-  return torch.sum(tilt * in_contact.to(tilt.dtype), dim=1)
+  return torch.sum(torch.square(foot_up_w[..., :2]), dim=-1)
 
 
 def static_foot_tilt_penalty(
@@ -313,16 +320,9 @@ def static_foot_tilt_penalty(
   asset_cfg: SceneEntityCfg = _DEFAULT_FEET_ASSET_CFG,
 ) -> torch.Tensor:
   """Return one foot's raw tilt only while a static command is active."""
-  asset = env.scene[asset_cfg.name]
-  body_quat_w = _body_link_quat_w(asset.data)[:, asset_cfg.body_ids]
   if not 0 <= foot_index < len(asset_cfg.body_ids):
     raise ValueError(f"foot_index must be in 0..{len(asset_cfg.body_ids) - 1}")
-  local_up = torch.zeros((*body_quat_w.shape[:-1], 3), device=body_quat_w.device)
-  local_up[..., 2] = 1.0
-  foot_up_w = quat_apply(body_quat_w.reshape(-1, 4), local_up.reshape(-1, 3)).reshape_as(
-    local_up
-  )
-  tilt = torch.sum(torch.square(foot_up_w[..., :2]), dim=-1)
+  tilt = _per_foot_tilt(env, asset_cfg)
   still = _standstill_mask(env, command_name, command_zero_threshold)
   return tilt[:, foot_index] * still.to(tilt.dtype)
 
@@ -334,22 +334,16 @@ def static_double_foot_tilt_multiplier(
   asset_cfg: SceneEntityCfg = _DEFAULT_FEET_ASSET_CFG,
 ) -> torch.Tensor:
   """Return ``exp(-t_left) * exp(-t_right)`` only for static commands."""
-  asset = env.scene[asset_cfg.name]
-  body_quat_w = _body_link_quat_w(asset.data)[:, asset_cfg.body_ids]
-  local_up = torch.zeros((*body_quat_w.shape[:-1], 3), device=body_quat_w.device)
-  local_up[..., 2] = 1.0
-  foot_up_w = quat_apply(body_quat_w.reshape(-1, 4), local_up.reshape(-1, 3)).reshape_as(
-    local_up
-  )
-  tilt = torch.sum(torch.square(foot_up_w[..., :2]), dim=-1)
+  tilt = _per_foot_tilt(env, asset_cfg)
   static_factor = torch.exp(-torch.sum(tilt, dim=1))
   still = _standstill_mask(env, command_name, command_zero_threshold)
   return torch.where(still, static_factor, torch.ones_like(static_factor))
 
 
-def _foot_contact_flags(
-  env: "ManagerBasedRlEnv", sensor_name: str, contact_threshold: float
+def _foot_contact_force_norms(
+  env: "ManagerBasedRlEnv", sensor_name: str
 ) -> torch.Tensor:
+  """Return one terrain contact-force magnitude per configured foot."""
   contact_sensor = env.scene.sensors[sensor_name]
   force = contact_sensor.data.force
   if force is None:
@@ -358,7 +352,53 @@ def _foot_contact_flags(
   force_norm = torch.linalg.norm(force, dim=-1)
   while force_norm.ndim > 2:
     force_norm = force_norm.amax(dim=-1)
-  return force_norm > contact_threshold
+  return force_norm
+
+
+def _foot_contact_flags(
+  env: "ManagerBasedRlEnv", sensor_name: str, contact_threshold: float
+) -> torch.Tensor:
+  return _foot_contact_force_norms(env, sensor_name) > contact_threshold
+
+
+def moving_debounced_support_foot_tilt_penalty(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  sensor_name: str,
+  contact_threshold: float = 1.0,
+  min_contact_time: float = 0.06,
+  command_threshold: float = 0.2,
+  asset_cfg: SceneEntityCfg = _DEFAULT_FEET_ASSET_CFG,
+) -> torch.Tensor:
+  """Tilt for moving feet with low-force contact and contact-time debounce."""
+  contact_sensor = env.scene.sensors[sensor_name]
+  contact_time = contact_sensor.data.current_contact_time
+  if contact_time is None:
+    msg = f"Contact sensor '{sensor_name}' must enable track_air_time."
+    raise RuntimeError(msg)
+  in_contact = _foot_contact_flags(env, sensor_name, contact_threshold)
+  support = in_contact & (contact_time > min_contact_time)
+  tilt = _per_foot_tilt(env, asset_cfg)
+  moving = _command_norm(env, command_name) > command_threshold
+  return torch.sum(tilt * support.to(tilt.dtype), dim=1) * moving.to(tilt.dtype)
+
+
+def moving_max_force_foot_tilt_penalty(
+  env: "ManagerBasedRlEnv",
+  command_name: str,
+  sensor_name: str,
+  contact_threshold: float = 1.0,
+  command_threshold: float = 0.2,
+  asset_cfg: SceneEntityCfg = _DEFAULT_FEET_ASSET_CFG,
+) -> torch.Tensor:
+  """Tilt of the higher-force foot only while a movement command is active."""
+  force_norm = _foot_contact_force_norms(env, sensor_name)
+  max_force, support_index = torch.max(force_norm, dim=1)
+  tilt = _per_foot_tilt(env, asset_cfg)
+  support_tilt = torch.gather(tilt, dim=1, index=support_index.unsqueeze(1)).squeeze(1)
+  moving = _command_norm(env, command_name) > command_threshold
+  has_support = max_force > contact_threshold
+  return support_tilt * moving.to(tilt.dtype) * has_support.to(tilt.dtype)
 
 
 def _rolling_foot_contact_counts(

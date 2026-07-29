@@ -137,8 +137,11 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - G7-G18 retain their parent task settings and add, per parent, G20-style `(-0.1 foot tilt, -0.4 persistent support)` or foot-tilt-only `-0.05/-0.2/-0.4`.
   - G19-G21 retain G4/G5/G6 respectively and add only `-0.05*foot_tilt` for each foot over 80N.
   - scripts: `scripts/run_exp13_groups1_21.sh`, `scripts/play_exp13_groups1_21_wandb.sh`.
-- Experiment 14 is implemented with 16 independent fine-tuning tasks. It uses only Exp13 G5 `model_9999.pt`; no Exp13 G4/G6 parent is used. Each reward configuration has separate 3000- and 6000-iteration variants, both starting from G5.
+- Experiment 14 is implemented with 30 independent fine-tuning tasks. It uses only Exp13 G5 `model_9999.pt`; no Exp13 G4/G6 parent is used. Each reward configuration has separate 3000- and 6000-iteration variants, both starting from G5.
   - Phase 1, static flat-foot ablations: static branch only. Per-foot raw tilt is `t_i = ||(R(q_i)e_z)_{xy}||^2 = sin^2(theta_i)`. Additive `R=R0-w(t_L+t_R)` uses `w={0.2,0.5,1.0}` (three groups). Multiplicative `R=R0*exp(-t_L)*exp(-t_R)` is one fixed-strength group; it has no independent additive weight.
   - Phase 2, moving duty-balance ablations: 3-second fixed contact-history window with force threshold `1N`, active only under non-static command. Compare exponential `R=R0*exp(-2*d)` (one configuration) and additive `R=R0-w_g*d` with `w_g={0.05,0.1,0.2}` (three configurations). This measures left/right support-duty balance, not actual cadence/frequency.
   - `1N` was deliberately selected over `80N`: a still-tiptoeing foot can be lightly loaded while the other foot carries most weight, and must remain represented in the duty statistic.
+  - G17-G24: moving raw tilt applies only to per-foot support mask `F>1N AND current_contact_time>0.04/0.06s`; tilt weights are `-0.1/-0.2`.
+  - G25-G30: moving raw tilt applies only to the foot with larger terrain net-force magnitude, provided `F_max>1N`; tilt weights are `-0.1/-0.2/-0.4`.
+  - G17-G30 intentionally exclude all Exp14 static double-foot tilt terms. Canonical scripts are `scripts/run_exp14_groups1_30.sh` and `scripts/play_exp14_groups1_30_wandb.sh`.
   - The combined tilt+duty reward phase is deliberately deferred until Phase 1 and 2 results select viable strengths.

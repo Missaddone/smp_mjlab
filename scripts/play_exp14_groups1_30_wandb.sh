@@ -4,10 +4,10 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/play_exp14_groups1_16_wandb.sh [--gpu N] [--num-envs N] [--video-length N] \
+  bash scripts/play_exp14_groups1_30_wandb.sh [--gpu N] [--num-envs N] [--video-length N] \
     [--viewer auto|native|viser] <group_number> <wandb_run_path>
 
-Valid group_number values: 1..16
+Valid group_number values: 1..30
 EOF
 }
 
@@ -38,8 +38,8 @@ fi
 GROUP="$1"
 WANDB_RUN_PATH="$2"
 
-if ! [[ "$GROUP" =~ ^([1-9]|1[0-6])$ ]]; then
-  echo "[ERROR] group_number must be an integer from 1 to 16. Got: $GROUP" >&2
+if ! [[ "$GROUP" =~ ^([1-9]|[12][0-9]|30)$ ]]; then
+  echo "[ERROR] group_number must be an integer from 1 to 30. Got: $GROUP" >&2
   exit 1
 fi
 

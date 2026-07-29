@@ -1,4 +1,4 @@
-# Experiment 14: G5 Flat-Foot And Contact-Duty Fine-Tuning
+# Experiment 14: G5 Flat-Foot, Contact-Duty, And Moving Support-Foot Fine-Tuning
 
 All 16 tasks independently resume Exp13 G5 (`model_9999.pt`). They preserve
 its prior, body-velocity command, stop branch, moving reward mix, observation,
@@ -25,11 +25,23 @@ It is active only when `||[v_x, v_y, yaw_rate]|| > 0.2`.
 | 11, 12 | Exp13 G5 | moving `R = R0 - 0.05*d` | 3000, 6000 |
 | 13, 14 | Exp13 G5 | moving `R = R0 - 0.1*d` | 3000, 6000 |
 | 15, 16 | Exp13 G5 | moving `R = R0 - 0.2*d` | 3000, 6000 |
+| 17, 18 | Exp13 G5 | moving `R = R0 - 0.1*sum_i(s_i*t_i)`, debounce 0.04 s | 3000, 6000 |
+| 19, 20 | Exp13 G5 | moving `R = R0 - 0.2*sum_i(s_i*t_i)`, debounce 0.04 s | 3000, 6000 |
+| 21, 22 | Exp13 G5 | moving `R = R0 - 0.1*sum_i(s_i*t_i)`, debounce 0.06 s | 3000, 6000 |
+| 23, 24 | Exp13 G5 | moving `R = R0 - 0.2*sum_i(s_i*t_i)`, debounce 0.06 s | 3000, 6000 |
+| 25, 26 | Exp13 G5 | moving `R = R0 - 0.1*t_argmax(F_left,F_right)` | 3000, 6000 |
+| 27, 28 | Exp13 G5 | moving `R = R0 - 0.2*t_argmax(F_left,F_right)` | 3000, 6000 |
+| 29, 30 | Exp13 G5 | moving `R = R0 - 0.4*t_argmax(F_left,F_right)` | 3000, 6000 |
+
+For G17-G24, `s_i = 1[F_i > 1N] * 1[T_contact,i > tau]`. For G25-G30,
+the selected foot must have `max(F_left,F_right) > 1N`; otherwise no movement
+tilt penalty is applied. Neither family adds the successful static double-foot
+tilt terms from G1-G8.
 
 Train one group directly:
 
 ```bash
-bash scripts/run_exp14_groups1_16.sh <group> <gpu> \
+bash scripts/run_exp14_groups1_30.sh <group> <gpu> \
   robinbird-harbin-institute-of-technology/smp/j8wnqojl
 ```
 
@@ -42,6 +54,6 @@ uv run scripts/experiment_launcher.py train exp14 <group> --gpu <gpu>
 Play one completed group from W&B:
 
 ```bash
-bash scripts/play_exp14_groups1_16_wandb.sh --gpu <gpu> <group> \
+bash scripts/play_exp14_groups1_30_wandb.sh --gpu <gpu> <group> \
   robinbird-harbin-institute-of-technology/smp/<run_id>
 ```

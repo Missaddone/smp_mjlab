@@ -55,9 +55,9 @@ SPECS = {
     play_script="scripts/play_exp13_groups1_21_wandb.sh",
   ),
   "exp14": ExperimentSpec(
-    max_group=16,
-    train_script="scripts/run_exp14_groups1_16.sh",
-    play_script="scripts/play_exp14_groups1_16_wandb.sh",
+    max_group=30,
+    train_script="scripts/run_exp14_groups1_30.sh",
+    play_script="scripts/play_exp14_groups1_30_wandb.sh",
   ),
 }
 
