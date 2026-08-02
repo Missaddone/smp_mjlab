@@ -338,3 +338,4 @@
 - `src/smp/rl/tasks/body_velocity/mdp/commands.py`
 - `src/smp/rl/tasks/body_velocity/mdp/rewards.py`
 - `tests/test_body_velocity_task.py`
+- 2026-08-02: User approved the prior Feishu maintenance outcome. Created the dedicated local Feishu-maintainer subagent procedure (Git-local artifact) and began a two-stage Notion extraction/product-manager synthesis for an agent-resume reference page. Current Feishu task is limited to SMP-唐雨洁 short-term problems, schedule, and solution direction.

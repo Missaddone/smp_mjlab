@@ -12,6 +12,7 @@ Maintain experiment context and implement experiment-specific SMP task changes w
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
 - For read-only project structure or code-logic questions, use a subagent with model `gpt-5.4` and reasoning `medium`.
+- For explicitly delegated Feishu documentation work, use the local `FEISHU_DOCUMENT_MAINTAINER_SUBAGENT.md` procedure with standing write authorization and post-write re-fetch verification.
 - Refresh these planning files every 6 user messages.
 - Do not change prior, reward, command, task name, or code outside the requested scope.
 - For experiment records, remind the user to fill prior experiment effects if a new experiment starts and Notion effect fields are blank.
@@ -37,6 +38,7 @@ Maintain experiment context and implement experiment-specific SMP task changes w
   - Do not put `r_final` composition in task MDP reward files.
 
 ## Open Items
+- Documentation maintenance: create a short-term-problem section in Feishu `SMP-唐雨洁`; in parallel, extract skill/harness-related user messages from the Notion conversation log and have a product-manager subagent create the requested Notion resume-reference page.
 - Exp13 tiptoe fine-tuning (implemented): fine-tune each Exp13 G4/G5/G6 `model_9999.pt` from its own W&B run, preserving that group's command, stop branch, prior, and moving-reward mix. Per parent, compare four variants: (a) retained Exp11 G20 regularization, `-0.1*support_foot_tilt -0.4*persistent_single_support`; (b) `-0.05*support_foot_tilt` only; (c) `-0.2*support_foot_tilt` only; (d) `-0.4*support_foot_tilt` only. This yields Exp13 G7-G18. The G20-style variant is deliberately unchanged despite its gait-timing semantics.
 - Play-script lifecycle cleanup (complete): each experiment now has one current policy train script and one current play script. Exp12 obsolete `groups1_12` scripts were removed; Exp6 groups 7-14 were consolidated into single current train/play scripts. Prior-preparation scripts remain separate because they do not train or play policies.
 - W&B run-id registry migration (complete): the tracked root-level `wandb_run_registry.csv` (`exp,group,run_id`) is now the playback source across servers. Launcher training writes its generated id; playback reads the CSV first and backfills a blank entry from W&B by experiment tag and group.
