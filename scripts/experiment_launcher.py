@@ -27,6 +27,7 @@ WANDB_EXPERIMENT_NAMES = {
   "exp12": "smp_exp12_body_velocity_theme_prior",
   "exp13": "smp_exp13_body_velocity_moving_reward_mix",
   "exp14": "smp_exp14_body_velocity_flatfoot_duty",
+  "exp15": "smp_exp15_body_velocity_flatfoot_staged",
 }
 WandbRegistryRow = dict[str, str]
 EXP14_SECOND_STAGE_PARENT_GROUPS = {
@@ -82,6 +83,11 @@ SPECS = {
     max_group=40,
     train_script="scripts/run_exp14_groups1_40.sh",
     play_script="scripts/play_exp14_groups1_40_wandb.sh",
+  ),
+  "exp15": ExperimentSpec(
+    max_group=13,
+    train_script="scripts/run_exp15_groups1_13.sh",
+    play_script="scripts/play_exp15_groups1_13_wandb.sh",
   ),
 }
 
@@ -375,6 +381,8 @@ def finetune_source_group(experiment: str, group: int) -> tuple[str, int] | None
     if group in EXP14_SECOND_STAGE_PARENT_GROUPS:
       return ("exp14", EXP14_SECOND_STAGE_PARENT_GROUPS[group])
     return ("exp13", 5)
+  if experiment == "exp15" and group <= 8:
+    return ("exp13", 4)
   return None
 
 
@@ -394,6 +402,11 @@ def training_source_wandb_path(
   """Resolve implicit parent checkpoints for registered fine-tune groups."""
   if explicit_source is not None:
     return explicit_source
+  if experiment == "exp15" and group >= 9:
+    raise ValueError(
+      f"exp15 group {group} is Phase 2 and requires the selected Phase 1 source "
+      "W&B path via --source-wandb-path."
+    )
   source = finetune_source_group(experiment, group)
   if source is None:
     return None
@@ -423,6 +436,7 @@ def create_record(
   wandb_entity: str,
   source_wandb_path: str | None,
   checkpoint_name: str,
+  phase1_static_tilt_weight: float | None = None,
 ) -> dict[str, object]:
   validate_group(experiment, group)
   if gpu < 0:
@@ -447,6 +461,7 @@ def create_record(
       "wandb_run_path": f"{wandb_entity}/{DEFAULT_WANDB_PROJECT}/{run_id}",
       "source_wandb_path": source_wandb_path,
       "checkpoint_name": checkpoint_name,
+      "phase1_static_tilt_weight": phase1_static_tilt_weight,
     }
     records.append(record)
     _write_records_unlocked(records)
@@ -459,12 +474,20 @@ def train_command(record: dict[str, object]) -> list[str]:
   gpu = int(record["gpu"])
   command = ["bash", SPECS[experiment].train_script, str(group), str(gpu)]
 
-  if experiment == "exp11" or finetune_source_group(experiment, group) is not None:
+  if experiment in ("exp11", "exp15") or finetune_source_group(experiment, group) is not None:
     source_path = record["source_wandb_path"]
     checkpoint_name = str(record["checkpoint_name"])
     if source_path is None:
       raise ValueError(f"{experiment} group {group} needs a source W&B checkpoint")
     command.extend([str(source_path), checkpoint_name])
+  if experiment == "exp15" and group >= 9:
+    static_weight = record.get("phase1_static_tilt_weight")
+    if static_weight in (None, ""):
+      raise ValueError(
+        f"exp15 group {group} needs --phase1-static-weight so its static reward "
+        "matches the selected Phase 1 parent"
+      )
+    command.append(str(static_weight))
   return command
 
 
@@ -540,7 +563,7 @@ def print_records(show_all: bool) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(
-    description="Launch or replay Exp11/12/13/14 groups through wandb_run_registry.csv."
+    description="Launch or replay Exp11/12/13/14/15 groups through wandb_run_registry.csv."
   )
   subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -558,6 +581,11 @@ def build_parser() -> argparse.ArgumentParser:
   train.add_argument(
     "--checkpoint-name",
     help="Override the source checkpoint name; defaults to the planned parent final checkpoint.",
+  )
+  train.add_argument(
+    "--phase1-static-weight",
+    type=float,
+    help="Exp15 Phase 1 static tilt weight to preserve for groups 9-13.",
   )
 
   play = subparsers.add_parser("play", help="Replay a group resolved from wandb_run_registry.csv.")
@@ -603,6 +631,7 @@ def main() -> int:
         args.wandb_entity,
         source_wandb_path,
         args.checkpoint_name or default_checkpoint_name(args.experiment, args.group),
+        args.phase1_static_weight,
       )
     except ValueError as error:
       print(f"[ERROR] {error}", file=sys.stderr)

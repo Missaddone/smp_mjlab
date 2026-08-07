@@ -1,5 +1,51 @@
 # smp_mjlab Findings
 
+## Experiment 15 Intake (2026-08-05)
+- User reports that Exp13 G4-G6 originally had strong tracking and symmetric
+  motion, while Exp14 flat-foot fine-tunes often degraded tracking and gait.
+- Reported Exp14 observations: forward G36 is acceptable; G31-G35 and G39
+  have an impaired swing foot. Backward G31/G35/G36/G39 exhibit one-foot-ahead
+  gait; G33/G34 add poor tracking. Lateral G31/G32/G35/G36/G39 show an
+  asymmetric left-back/right-forward gait and may drift backward; G33/G34 also
+  lose lateral tracking and cannot move right. G37/G38 are rejected because
+  they still tiptoe while walking.
+- Exp15 must start from Exp13 G4 only. The first requested hypothesis is a
+  staged procedure: solve flat feet during standing first, then address flat
+  feet while walking. The user also asks for independent hypotheses about
+  high-frequency joint noise, fine-tuning validity, and whether source motion
+  data were fully mirrored.
+
+## Experiment 15 Audit Findings (in progress)
+- Important correction: the checked-in Exp14 code does **not** inherit Exp13
+  G4-G6. `body_velocity_exp14_env_cfg.py` hard-codes `_PARENT_GROUP = 5`, and
+  `run_exp14_groups1_40.sh` states groups 1-30 fine-tune Exp13 G5. Thus the
+  reported Exp14 outcomes are not a direct G4/G6 comparison unless a different
+  uncommitted/remote runner was used.
+- Exp13 G4 is `Exp10 G15 + moving reward 0.5*r_l*r_y + 0.25*r_l + 0.25*r_y`.
+  Exp13 G5 instead uses `0.6*r_l*r_y + 0.2*r_l + 0.2*r_y`; this reward change
+  alone makes them different policy starting points.
+- Exp14 moving tilt groups use an additive reward, active only if command norm
+  exceeds 0.2, terrain net-force is above 1N, and (for G17-G24) continuous
+  contact exceeds 40/60 ms. Static terms use the same 0.2 command threshold.
+  The second-stage G31-G40 therefore combine static and moving penalties in
+  one fine-tune rather than first consolidating a static-only policy.
+- The current mirror utility explicitly declares CSV quaternion input order
+  `base_quat_xyzw`, mirrors quaternion x/z signs, swaps left/right joints and
+  end-effectors, and applies roll/yaw sign changes. This is internally
+  consistent with xyzw. It cannot prove that the historical prior used by
+  Exp13 G4 was generated through this script or that the script's rigid joint
+  layout matches every original source CSV; trace the actual prior preparation
+  command and artifacts next.
+- Exp13 G4/G5/G6 all use the same Exp10 prior
+  `datasets/pretrain_ckpt/exp10_loco_stop_static.pt`; only their moving reward
+  mix differs. The committed `run_exp10_prepare_prior.sh` is the prior builder
+  relevant to this checkpoint and invokes `mirror_motion_data.py` with
+  `--include-original` before CSV-to-NPZ and pretraining.
+- No existing body-velocity reward term measures action-rate, action
+  acceleration, torque, or motor power. The stop branch only applies a joint
+  velocity component when the command is static. Therefore it cannot diagnose
+  or suppress high-frequency joint oscillation while the robot is moving.
+
 ## Body Velocity Migration
 - `src/smp/rl/tasks/body_velocity` was originally a copied steering task.
 - The copied package still registered `Smp-Steering-G1` and `Smp-Forward-G1`; this was replaced with a single `Smp-BodyVelocity-G1` registration.
@@ -328,3 +374,17 @@
 - This is distinct from Exp11's `--wandb-run-path`, which identifies the old Exp10 checkpoint to download before fine-tuning; it must remain unchanged.
 - Local training output already stores downloaded W&B checkpoints below `logs/rsl_rl/<experiment>/wandb_checkpoints/<run_id>/`, confirming that W&B's opaque run id is the only missing element in the usual playback path.
 - `tmux 3.2a` is available. One `smp-experiments` session can contain one named window per training run, so VS Code SSH needs only one attached tmux session while multiple GPU jobs remain individually visible.
+
+## Experiment 15 Design Draft (2026-08-05)
+- Exp15 is fixed to `Exp13 G4` only: preserve its prior, command, observation, SMP wrapper, and moving reward mix; do not inherit Exp14 or Exp13 G5/G6 models.
+- Draft uses a staged design: Phase 0 controls continued fine-tuning drift, Phase 1 adds only static double-foot tilt, and Phase 2 adds only moving contact-gated support-foot tilt after selecting a viable Phase 1 parent.
+- Draft group range is G1-G13: G1-G2 no-new-reward controls; G3-G8 static tilt with `w={0.05,0.1,0.2}` and 1000/3000 iterations; G9-G13 moving-stage control plus low-strength debounced support tilt.
+- Moving support mask is reward-only: non-static command, `F_i>1N`, and continuous contact longer than `0.06s`; it does not change actor/critic dimensions or deployment input.
+- High-frequency action/joint metrics are diagnostic-only in the draft; no action-smoothing reward is added before confirming the simulator signal.
+- User approved the design. Exp15 task/config, diagnostics, train/play scripts, launcher support, and registry rows are now implemented; cached `torch/mjlab` verification passed, but no GPU training smoke test was run.
+- Exp15 diagnostics now resolve action indices from the runtime `joint_pos`
+  target names and separately monitor 12 leg joints and 4 ankle joints.
+  Recorded signals are first difference, second-difference proxy, consecutive
+  sign-flip rate, and matching group joint-velocity RMS/peak. The values are
+  cached once per policy step and shared by W&B metrics and the CSV recorder;
+  they remain diagnostic-only.

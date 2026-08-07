@@ -1,5 +1,27 @@
 # smp_mjlab Progress
 
+## 2026-08-05 - Experiment 15 discovery started
+- Read the active experiment plan, findings, Exp14 summary, and located the
+  Exp13/14 task configs, scripts, and motion-mirroring utility.
+- No experiment code or reward configuration has been changed.
+- Next: inspect Exp13 G4 inheritance, Exp14 group mappings and reward runtime
+  semantics, source checkpoint selection, mirroring pipeline, and available
+  simulator action/joint diagnostics before presenting the design.
+- Found a material configuration mismatch: committed Exp14 is hard-coded to
+  Exp13 G5, whereas the new request assumes its results came from G4-G6.
+  This must be resolved before treating Exp14 results as evidence about G4.
+- Confirmed the shared Exp10 prior builder contains an explicit original-plus-
+  mirror staging step. Need to distinguish code intent from the actual prior
+  artifact used on the training server.
+- Confirmed there is no moving-state action/joint-acceleration diagnostic or
+  regularizer in the current body-velocity reward stack.
+
+## Errors Encountered
+| Error | Attempt | Resolution |
+| --- | --- | --- |
+| `rg: command not found` | Searched Exp13/14 task definitions | Use `grep -R -n` for this environment. |
+| Project read-only subagent failed to initialize | Requested mirror/prior audit | Fall back to local source and git-history inspection; no code was changed. |
+
 ## 2026-07-03
 - Created planning files after context refresh threshold.
 - Logged latest user message to Notion.
@@ -339,3 +361,12 @@
 - `src/smp/rl/tasks/body_velocity/mdp/rewards.py`
 - `tests/test_body_velocity_task.py`
 - 2026-08-02: User approved the prior Feishu maintenance outcome. Created the dedicated local Feishu-maintainer subagent procedure (Git-local artifact) and began a two-stage Notion extraction/product-manager synthesis for an agent-resume reference page. Current Feishu task is limited to SMP-唐雨洁 short-term problems, schedule, and solution direction.
+- 2026-08-05: Exp15 design approved and implemented. Added G1-G13 task configs from Exp13 G4, staged static/moving tilt rewards, W&B episode metrics, file-backed CSV diagnostics under `logs/exp15_diagnostics/`, canonical train/play scripts, launcher support, registry rows, and summary documentation. Local syntax/static checks pass; `torch`/`mjlab` are absent from this checkout's `.venv`, so dependency-backed builder tests must run on the training server.
+- 2026-08-05: Verified Exp15 with the available cached `torch/mjlab` environment: 2 unit tests passed, CSV recorder smoke test passed, all 13 builders passed, `smp.rl.tasks` import passed, launcher source rules passed, Bash syntax checks passed, Python compilation passed, and `git diff --check` passed. The local project `.venv` remains dependency-incomplete, so this does not replace a real GPU training smoke test.
+- 2026-08-06: Extended Exp15 CSV/W&B diagnostics with leg- and ankle-specific
+  policy-output oscillation signals: action first-difference RMS/peak,
+  second-difference RMS/peak, sign-flip rate, and corresponding joint-velocity
+  RMS/peak. Runtime joint-name resolution avoids fixed action indices, and
+  per-step caching avoids recomputing the same diagnostic for each metric.
+  Verification passed: 3 unit tests, all 13 Exp15 builders, Python compilation,
+  and `git diff --check`.

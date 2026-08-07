@@ -3,11 +3,41 @@
 ## Active Objective
 Maintain experiment context and implement experiment-specific SMP task changes without mixing unrelated branches or priors.
 
+## Experiment 15: Tracking-Preserving Flat-Foot Investigation
+
+### Goal
+Explain and mitigate the tracking and gait-symmetry regression observed when
+Exp14 flat-foot regularization is fine-tuned from the otherwise strong Exp13
+G4 baseline. Determine whether high-frequency joint behavior is visible in
+simulation and whether data mirroring or fine-tuning setup is a plausible
+root cause.
+
+### Phases
+- [x] Phase 1: Restore Exp13/14 context and record observed Exp14 outcomes.
+- [x] Phase 2: Audit Exp13 G4 parent config, Exp14 reward activation/magnitude,
+  fine-tune checkpoint selection, and relevant motion-mirroring paths.
+- [x] Phase 3: Propose and obtain approval for an Exp15 ablation plan. The plan
+  must start from Exp13 G4 only and separate static flat-foot learning from
+  moving flat-foot learning.
+- [x] Phase 4: Implement approved task configs, metrics, train/play scripts,
+  and documentation without modifying unrelated tasks.
+- [x] Phase 5: Verify task builders/scripts and record exact limitations of
+  simulator-side high-frequency-joint diagnostics.
+
 ## Current Phase
 - Status: in progress
 - Branch: reconstruct
 - Current experiment: Experiment 11 evaluation and Experiment 13 follow-up design
-- Task under construction: make Exp11/12/13 train/play launch and W&B checkpoint lookup reproducible from experiment and group numbers
+- Task under construction: none; Exp15 implementation and local cached-dependency verification are complete
+
+## Exp15 Implementation Status
+
+- Added `Smp-BodyVelocity-Exp15-Group1-G1` through `Group13-G1`.
+- Added staged static/moving reward configs, metrics, CSV recorder, train/play scripts,
+  launcher support, registry rows, and updated `exp15_summary.md`.
+- CSV diagnostics are written to `logs/exp15_diagnostics/groupXX_diagnostics.csv`.
+- Local syntax/static checks pass. Using the available cached dependency environment,
+  Exp15 unit tests, recorder CSV smoke test, all 13 builders, and package import pass.
 
 ## Standing Rules
 - Log every user message to Notion page `smp_mjlab Codex user message record`.
