@@ -20,6 +20,25 @@
   data were fully mirrored.
 
 ## Experiment 15 Audit Findings (in progress)
+- `new_dev` implementation audit: checkpoint state must be added through a
+  project-local `SmpOnPolicyRunner` subclass, rather than patching installed
+  `mjlab`. The base runner owns save/load and currently persists only
+  `common_step_counter` in `infos['env_state']`; SMP normalizer state must be
+  stored at another `infos` key and restored after environment startup. Legacy
+  checkpoints cannot reconstruct this missing policy-relative state and should
+  be rejected by an explicit strict-resume mode for new_dev exact fine-tunes.
+- `motebu.csv` is valid motion input (2215 rows x 36 columns at 30 Hz, about
+  73.8 s); `theme/stop_static.csv` is valid static input (900 rows, about
+  30 s). Neither currently has a mirror, and the existing mirror utility can
+  generate them deterministically, yielding exactly four CSVs. The new prior
+  should be isolated as `exp16_motebu_stop_static.pt`, with its own staged raw
+  and NPZ directories.
+- Exp16 should train policies from scratch, reuse only Exp13 G4/G5/G6's three
+  moving-reward mixes, replace the prior, and set x/y command ranges to
+  +/-1.5 and yaw to +/-2.0. Motebu contains forward/backward, lateral, and
+  yaw motion but does not uniformly cover every command combination, so Exp16
+  tests a more appropriate prior rather than proving full command-space data
+  coverage.
 - Exp15 G1--G4 all resumed the verified Exp13 G4 checkpoint
   `x0qhmi4d/model_9999.pt` (iteration 9999). G1/G2 add no reward at all but
   still reproduce the user's tracking and gait regression after 1000/3000
@@ -132,6 +151,21 @@
 - Exp11 G20 is not foot-tilt-only. Its added terms are `-0.1*support_foot_tilt_penalty` and `-0.4*persistent_single_support_penalty`; its `double_air` weight is zero. The Exp11 base config also changes the moving reward, but that part must not be imported into Exp13 G4/G6 fine-tunes. Exp13 G7/G11/G15 retain only those regularizer weights while preserving each respective parent's moving reward.
 - Exp13 G8/G12/G16 use only `-0.05*support_foot_tilt`; G9/G13/G17 use `-0.2`; G10/G14/G18 use `-0.4`. All 12 groups fine-tune their parent G4/G5/G6 model_9999.pt for 3000 iterations.
 - `persistent_single_support_penalty` is active for command norm `>0.2` only when exactly one foot has nonzero continuous contact time. It subtracts `0.4 * clamp(max(current_contact_time)-0.45, 0, 0.8)` in G20. It uses the support foot's total uninterrupted contact age, not a separately reset one-foot-phase timer, so preceding double-support time is included. This can penalize legitimate slow walking and must be treated as a gait cadence bias rather than a general anti-tiptoe term.
+
+## NewDev Exp13/Exp14 and Exp16
+- The new `DiffNormalizer` checkpoint state includes version, timestep count, CPU-cloned
+  mean/count, minimum value, and maximum count. NewDev Exp14 uses a strict runner that
+  rejects missing state or a parent-group identity mismatch before loading actor/optimizer.
+- Before NewDev Exp13 G4--G6, run `bash scripts/run_new_dev_exp13_prepare_prior.sh --gpu <gpu>`.
+  It rebuilds the original Exp10 `loco + stop_static` source set and verifies every raw CSV
+  has a mirror; this explicitly includes `stop_static_mirror.csv`. It outputs
+  `datasets/pretrain_ckpt/new_dev_exp13_loco_stop_static_mirrored.pt`.
+- Then run `bash scripts/run_new_dev_exp13_groups4_6.sh <4|5|6> <gpu>` for each parent.
+  Only after obtaining the new W&B paths may NewDev Exp14 start with
+  `bash scripts/run_new_dev_exp14_groups1_9.sh <1..9> <gpu> <source_wandb_run_path>`.
+- Exp16's prior is intentionally a different four-file dataset: `motebu`, `stop_static`,
+  and their mirrors. It has non-uniform command coverage, so a successful Exp16 run does
+  not by itself establish full omnidirectional command coverage.
 
 ## Experiment 4 Seven-Group Runner
 - `k_xy` maps to `lin_vel_err_scale`.

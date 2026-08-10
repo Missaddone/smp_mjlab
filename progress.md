@@ -20,6 +20,25 @@
 - No code, configuration, checkpoint, or Feishu document was changed. Per the
   user's decision, Exp15 groups 5--13 will not be trained.
 
+## 2026-08-10 - new_dev / Exp14 / Exp16 implementation
+- Created `new_dev` from `reconstruct`; no GPU training was started.
+- Added versioned `DiffNormalizer` checkpoint serialization and project-local
+  runner support. NewDev Exp14 strictly rejects legacy checkpoints without
+  normalizer state and rejects an Exp13 parent identity mismatch before parent
+  runner loading.
+- Added a separate NewDev Exp13 prior builder. It starts from the Exp10
+  `loco + forward/stop_static` source set, generates every missing mirror, and
+  verifies mirrored pairing for every staged CSV, explicitly including
+  `stop_static_mirror.csv`. NewDev Exp13 G4--G6 now consume only this new prior.
+- Added the NewDev Exp14 9-group matrix: for each Exp13 G4/G5/G6 parent, one
+  no-extra-reward control, one moving support-foot tilt, and one static
+  double-foot tilt fine-tune; moving/static terms are not combined.
+- Added Exp16: strict four-file `motebu + stop_static + mirrors` prior build;
+  three from-scratch policy groups use the Exp13 G4/G5/G6 moving reward mixes
+  with x/y +/-1.5, yaw +/-2.0, and zero command probability 0.3.
+- Local targeted unit tests and Bash syntax validation passed. A separate
+  read-only Exp16 audit found no requirement mismatch.
+
 ## 2026-08-05 - Experiment 15 discovery started
 - Read the active experiment plan, findings, Exp14 summary, and located the
   Exp13/14 task configs, scripts, and motion-mirroring utility.

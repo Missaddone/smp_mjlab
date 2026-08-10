@@ -2,6 +2,7 @@
 
 from mjlab.tasks.registry import register_mjlab_task
 
+from smp.rl import SmpOnPolicyRunner, StrictSmpOnPolicyRunner
 from smp.rl.rl_cfg import unitree_g1_smp_ppo_runner_cfg
 from smp.rl.tasks.body_velocity.body_velocity_env_cfg import (
   g1_body_velocity_smp_env_cfg,
@@ -42,8 +43,17 @@ from smp.rl.tasks.body_velocity.body_velocity_exp13_env_cfg import (
 from smp.rl.tasks.body_velocity.body_velocity_exp14_env_cfg import (
   EXP14_BODY_VELOCITY_BUILDERS,
 )
+from smp.rl.tasks.body_velocity.body_velocity_exp14_new_dev_env_cfg import (
+  EXP14_NEW_DEV_BODY_VELOCITY_BUILDERS,
+)
 from smp.rl.tasks.body_velocity.body_velocity_exp15_env_cfg import (
   EXP15_BODY_VELOCITY_BUILDERS,
+)
+from smp.rl.tasks.body_velocity.body_velocity_exp16_env_cfg import (
+  EXP16_BODY_VELOCITY_BUILDERS,
+)
+from smp.rl.tasks.body_velocity.body_velocity_new_dev_exp13_env_cfg import (
+  EXP13_NEW_DEV_BODY_VELOCITY_BUILDERS,
 )
 
 
@@ -156,6 +166,45 @@ for _group, _env_builder, _spec in EXP15_BODY_VELOCITY_BUILDERS:
     rl_cfg=_rl,
   )
 
+for _group, _env_builder, _spec in EXP16_BODY_VELOCITY_BUILDERS:
+  _rl = _runner(
+    "smp_exp16_body_velocity_motebu_stop_static",
+    run_name=_spec.run_name,
+  )
+  register_mjlab_task(
+    task_id=f"Smp-BodyVelocity-Exp16-Group{_group}-G1",
+    env_cfg=_env_builder(play=False),
+    play_env_cfg=_env_builder(play=True),
+    rl_cfg=_rl,
+    runner_cls=SmpOnPolicyRunner,
+  )
+
+for _group, _env_builder, _spec in EXP13_NEW_DEV_BODY_VELOCITY_BUILDERS:
+  _rl = _runner(
+    "smp_new_dev_exp13_body_velocity_moving_reward_mix",
+    run_name=f"new_dev_{_spec.run_name}",
+  )
+  register_mjlab_task(
+    task_id=f"Smp-BodyVelocity-NewDev-Exp13-Group{_group}-G1",
+    env_cfg=_env_builder(play=False),
+    play_env_cfg=_env_builder(play=True),
+    rl_cfg=_rl,
+    runner_cls=SmpOnPolicyRunner,
+  )
+
+for _group, _env_builder, _spec in EXP14_NEW_DEV_BODY_VELOCITY_BUILDERS:
+  _rl = _runner(
+    "smp_new_dev_exp14_body_velocity_flatfoot",
+    run_name=_spec.run_name,
+  )
+  register_mjlab_task(
+    task_id=f"Smp-BodyVelocity-NewDev-Exp14-Group{_group}-G1",
+    env_cfg=_env_builder(play=False),
+    play_env_cfg=_env_builder(play=True),
+    rl_cfg=_rl,
+    runner_cls=StrictSmpOnPolicyRunner,
+  )
+
 __all__ = [
   "EXP10_BODY_VELOCITY_BUILDERS",
   "EXP11_BODY_VELOCITY_BUILDERS",
@@ -163,6 +212,8 @@ __all__ = [
   "EXP13_BODY_VELOCITY_BUILDERS",
   "EXP14_BODY_VELOCITY_BUILDERS",
   "EXP15_BODY_VELOCITY_BUILDERS",
+  "EXP16_BODY_VELOCITY_BUILDERS",
+  "EXP14_NEW_DEV_BODY_VELOCITY_BUILDERS",
   "g1_body_velocity_exp4_group1_smp_env_cfg",
   "g1_body_velocity_exp4_group2_smp_env_cfg",
   "g1_body_velocity_exp4_group3_smp_env_cfg",

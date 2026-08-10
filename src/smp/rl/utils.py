@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
@@ -65,10 +66,75 @@ class DiffNormalizer:
     min_value: float = 1e-4,
     max_count: int = 50_000_000,
   ) -> None:
+    self.num_timesteps = num_timesteps
     self.min_value = min_value
     self.max_count = max_count
     self.mean = torch.ones(num_timesteps, device=device)
     self.count = torch.zeros(num_timesteps, device=device, dtype=torch.long)
+
+  def state_dict(self) -> dict[str, Any]:
+    """Return the complete, device-independent normalizer state."""
+    return {
+      "version": 1,
+      "num_timesteps": self.num_timesteps,
+      "mean": self.mean.detach().cpu().clone(),
+      "count": self.count.detach().cpu().clone(),
+      "min_value": self.min_value,
+      "max_count": self.max_count,
+    }
+
+  def load_state_dict(self, state: Mapping[str, Any]) -> None:
+    """Restore a state produced by :meth:`state_dict` with strict validation."""
+    expected_keys = {
+      "version",
+      "num_timesteps",
+      "mean",
+      "count",
+      "min_value",
+      "max_count",
+    }
+    if not isinstance(state, Mapping) or set(state) != expected_keys:
+      raise ValueError("invalid DiffNormalizer state schema")
+    if state["version"] != 1:
+      raise ValueError("unsupported DiffNormalizer state version")
+    if state["num_timesteps"] != self.num_timesteps:
+      raise ValueError("DiffNormalizer num_timesteps does not match")
+
+    mean = state["mean"]
+    count = state["count"]
+    if not isinstance(mean, torch.Tensor) or not isinstance(count, torch.Tensor):
+      raise ValueError("DiffNormalizer mean and count must be tensors")
+    expected_shape = (self.num_timesteps,)
+    if mean.ndim != 1 or count.ndim != 1 or mean.shape != expected_shape or count.shape != expected_shape:
+      raise ValueError("DiffNormalizer mean and count have invalid shape")
+    if not torch.isfinite(mean).all() or not torch.all(mean > 0):
+      raise ValueError("DiffNormalizer mean must be finite and positive")
+    integer_dtypes = {
+      torch.uint8,
+      torch.int8,
+      torch.int16,
+      torch.int32,
+      torch.int64,
+    }
+    if count.dtype not in integer_dtypes or not torch.isfinite(count).all() or not torch.all(count >= 0):
+      raise ValueError("DiffNormalizer count must be finite, integer, and non-negative")
+
+    min_value = state["min_value"]
+    max_count = state["max_count"]
+    if (
+      not isinstance(min_value, (int, float))
+      or isinstance(min_value, bool)
+      or not np.isfinite(min_value)
+      or min_value <= 0
+    ):
+      raise ValueError("DiffNormalizer min_value must be finite and positive")
+    if not isinstance(max_count, int) or isinstance(max_count, bool) or max_count < 0:
+      raise ValueError("DiffNormalizer max_count must be a non-negative integer")
+
+    self.mean.copy_(mean.to(device=self.mean.device, dtype=self.mean.dtype))
+    self.count.copy_(count.to(device=self.count.device, dtype=self.count.dtype))
+    self.min_value = float(min_value)
+    self.max_count = max_count
 
   def update_and_normalize(self, t: int, mse_per_env: torch.Tensor) -> torch.Tensor:
     """Record MSE values for timestep ``t``; return them divided by the mean."""

@@ -28,6 +28,7 @@ WANDB_EXPERIMENT_NAMES = {
   "exp13": "smp_exp13_body_velocity_moving_reward_mix",
   "exp14": "smp_exp14_body_velocity_flatfoot_duty",
   "exp15": "smp_exp15_body_velocity_flatfoot_staged",
+  "exp16": "smp_exp16_body_velocity_motebu_stop_static",
 }
 WandbRegistryRow = dict[str, str]
 EXP14_SECOND_STAGE_PARENT_GROUPS = {
@@ -88,6 +89,11 @@ SPECS = {
     max_group=13,
     train_script="scripts/run_exp15_groups1_13.sh",
     play_script="scripts/play_exp15_groups1_13_wandb.sh",
+  ),
+  "exp16": ExperimentSpec(
+    max_group=3,
+    train_script="scripts/run_exp16_groups1_3.sh",
+    play_script="scripts/play_exp16_groups1_3_wandb.sh",
   ),
 }
 
@@ -563,7 +569,7 @@ def print_records(show_all: bool) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(
-    description="Launch or replay Exp11/12/13/14/15 groups through wandb_run_registry.csv."
+    description="Launch or replay Exp11/12/13/14/15/16 groups through wandb_run_registry.csv."
   )
   subparsers = parser.add_subparsers(dest="command", required=True)
 

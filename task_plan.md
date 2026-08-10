@@ -54,6 +54,26 @@ Use the recorded Exp15 training, replay, and diagnostic logs to determine why G1
 
 ### Next Step
 Report the evidence-backed diagnosis to the user; keep Exp15 G5–G13 untrained.
+
+## new_dev: Resumable SMP Fine-Tuning and Experiment 16
+
+### Goal
+Create an isolated `new_dev` branch without disturbing `reconstruct`; make SMP
+DiffNormalizer state resumable in future PPO checkpoints, define a small Exp14
+flat-foot fine-tuning suite using Exp13 G4--G6, and define Exp16 from only
+`motebu`, `stop-static`, and their mirrored CSVs with body-velocity command
+ranges x/y +/-1.5 and yaw +/-2.0.
+
+### Phases
+- [x] Phase 12: Audit the checkpoint/environment state boundary and existing test patterns; specify backward compatibility for old checkpoints.
+- [x] Phase 13: Audit the new motion CSV, mirror/data-conversion/pretraining pipeline, and reusable Exp13/14 configuration patterns.
+- [x] Phase 14: Present the isolated-branch design and compact experiment matrix for approval before implementation.
+- [x] Phase 15: Create `new_dev`; add test-first resumable DiffNormalizer checkpoint support and scripts/configs for approved Exp14 and Exp16 work.
+- [x] Phase 16: Run static/unit/script verification and hand off explicit training commands; do not start GPU training unless explicitly requested.
+
+### Next Step
+Run the explicitly supplied prior and policy commands on the training server;
+record the resulting W&B paths before starting NewDev Exp14 fine-tunes.
 - Task under construction: none; Exp15 implementation and local cached-dependency verification are complete
 
 ## Exp15 Implementation Status
