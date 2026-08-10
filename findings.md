@@ -1,5 +1,9 @@
 # smp_mjlab Findings
 
+## Experiment 15 Feishu record (2026-08-07)
+- Created `【实验十五-保持跟踪性能的平脚微调】` under the SMP master wiki: https://hcnxos1ntn7w.feishu.cn/wiki/NGqxw4M4vipSgOkIJLrcqHV2nXe .
+- The page follows the recent experiment-page structure: progress table, best-group section, base/reward configuration, per-group comparison table, and train/play commands. It states only the verified status: G1–G13 are configured, but no group has yet been trained or tested.
+
 ## Experiment 15 Intake (2026-08-05)
 - User reports that Exp13 G4-G6 originally had strong tracking and symmetric
   motion, while Exp14 flat-foot fine-tunes often degraded tracking and gait.
@@ -16,6 +20,48 @@
   data were fully mirrored.
 
 ## Experiment 15 Audit Findings (in progress)
+- Exp15 G1--G4 all resumed the verified Exp13 G4 checkpoint
+  `x0qhmi4d/model_9999.pt` (iteration 9999). G1/G2 add no reward at all but
+  still reproduce the user's tracking and gait regression after 1000/3000
+  additional PPO iterations. This is a direct control result: the current
+  continuation protocol itself is not fidelity-preserving.
+- The training entry point calls `runner.load(...)` with its default load
+  configuration. `rsl_rl` therefore restores actor, critic, optimizer, and
+  iteration state; optimizer-state loss is ruled out as the primary cause.
+- The actor changes materially despite the short nominal continuation: relative
+  actor L2 displacement from Exp13 G4 is 0.69% after the first update and
+  14.0% at G1 iteration 10998 (22.0% at G2 iteration 12998). G1 and G2 are
+  near-identical through iteration 10500, which corroborates that the drift
+  comes from the shared PPO continuation rather than their reward setup.
+- “1000 iterations” is not a light fine-tune in this runner: it is 4096
+  environments x 24 rollout steps x 1000 = 98.3 million samples and 20,000
+  PPO minibatch updates (G2: 295 million / 60,000). PPO clipping constrains
+  an update relative to the latest rollout, not relative to Exp13 G4, so this
+  workload has no mechanism that preserves the original gait.
+- A second, material discontinuity exists even for the no-added-reward control:
+  `init_smp_state()` creates a fresh `DiffNormalizer(mean=1, count=0)`, while
+  the checkpoint `infos` saves only `env_state.common_step_counter`. SMP reward
+  normalizes each diffusion MSE by this running state before applying
+  `exp(-err*6)`. Thus a resumed run does not optimize precisely the same SMP
+  reward scale/history as the run that produced Exp13 G4. This is confirmed by
+  the checkpoint contents and source; its exact contribution to visual
+  regression remains to be isolated.
+- G3/G4 differ from G1 only by static double-foot tilt penalties of 0.05/0.10.
+  Their late training reward contributions are only about -0.0001 to -0.0005
+  per foot versus `task_smp_product` about 0.0047--0.0059. Thus the observed
+  poor standing is not evidence that the tilt term overwhelms the task reward;
+  the more likely issue is a weak, sparse static signal being applied after
+  the policy has already drifted.
+- The static term is also not a “stable standing” objective: it only penalizes
+  each foot's `sin^2(tilt)` when command norm is at most 0.2. It contains no
+  base/joint-velocity, contact, or support constraint; therefore a robot can
+  reduce foot tilt while swaying or stepping. This matches the reported G3/G4
+  behavior and is separate from the primary continuation drift.
+- G1--G4 diagnostic CSVs and episode metrics do not show G3/G4 having larger
+  action-rate or joint-velocity indicators than G1/G2. The logs therefore do
+  not support high-frequency action noise as the leading explanation for the
+  static failure (tests were not a fixed-command statistical replay, so this
+  is not a full performance comparison).
 - Important correction: the checked-in Exp14 code does **not** inherit Exp13
   G4-G6. `body_velocity_exp14_env_cfg.py` hard-codes `_PARENT_GROUP = 5`, and
   `run_exp14_groups1_40.sh` states groups 1-30 fine-tune Exp13 G5. Thus the

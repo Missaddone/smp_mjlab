@@ -1,5 +1,25 @@
 # smp_mjlab Progress
 
+## 2026-08-07 - Experiment 15 Feishu document
+- Began authorised Feishu documentation maintenance for Experiment 15. Local `exp15_summary.md` and the latest five commits confirm Groups 1-13 are implemented but not yet trained or tested.
+- Initial plan-file patch attempt failed because it contained an empty hunk; no project or Feishu content changed.
+- Created and populated the authorised Feishu child page `【实验十五-保持跟踪性能的平脚微调】` under `SMP跑位-唐雨洁`: https://hcnxos1ntn7w.feishu.cn/wiki/NGqxw4M4vipSgOkIJLrcqHV2nXe .
+- Read the new page back at revision 3. Its G1–G13 progress and comparison tables keep every group on a separate row, result/video cells are empty, and the train/play plus diagnostic commands match `exp15_summary.md`.
+
+## 2026-08-10 - Experiment 15 G1–G4 degradation investigation
+- User reports G1–G4 have poor tracking and asymmetric/degenerate gait; G1/G2 regress despite no added reward, while G3/G4 also make static behavior worse. Investigation started without changing code or launching further training.
+- Located all four training logs, checkpoints, and replay diagnostics. G1/G2
+  establish that ordinary PPO resume from Exp13 G4 is itself non-preserving;
+  the runner restores optimizer state, so this is not a checkpoint-state
+  omission. Parameter comparison shows substantial actor displacement (G1
+  14.0%, G2 22.0% relative L2) and static tilt rewards are numerically small.
+- A subagent independently audited the same evidence. It corroborated the
+  continuation-drift result and identified a material SMP state gap:
+  `DiffNormalizer` is recreated on resume but is not checkpointed, changing
+  the normalized diffusion-reward history even in G1/G2.
+- No code, configuration, checkpoint, or Feishu document was changed. Per the
+  user's decision, Exp15 groups 5--13 will not be trained.
+
 ## 2026-08-05 - Experiment 15 discovery started
 - Read the active experiment plan, findings, Exp14 summary, and located the
   Exp13/14 task configs, scripts, and motion-mirroring utility.

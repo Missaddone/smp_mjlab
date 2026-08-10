@@ -1,0 +1,30 @@
+# Findings: G1 MJCF/XML to URDF
+
+- The repository root has no direct `g1_description/` directory.
+- Root-level `task_plan.md`, `findings.md`, and `progress.md` already contain unrelated user changes; they must not be overwritten.
+- The current worktree is dirty only in those three root planning files at the initial check.
+- Repository-wide search found the G1 asset under the installed environment at `.venv/lib/python3.13/site-packages/mjlab/asset_zoo/robots/unitree_g1/`, not under a root-level `g1_description/` directory.
+- The source is MuJoCo MJCF: `xmls/g1.xml`, model name `g1_29dof_rev_1_0`, with `meshdir="assets"` and 29 STL-based visual meshes.
+- The MJCF has a floating pelvis, nested body tree, explicit mass/principal inertias and inertial quaternions, revolute joint axes/ranges, mesh visuals, and primitive collision geometry.
+- A faithful URDF conversion must transform MJCF quaternions into URDF RPY, preserve nonzero body-frame rotations in joint origins, rotate diagonal principal inertias into each link inertial frame (or retain the inertial orientation), and convert capsule `fromto` geometry into URDF cylinder/sphere approximations because URDF has no capsule primitive.
+- The MJCF contains exactly 30 named bodies/links, 29 hinge joints, 30 inertial records, and 35 named mesh assets. The floating base is an MJCF `freejoint`; URDF normally represents `pelvis` as the root link without a joint, leaving floating-base handling to the consuming simulator.
+- The source contains no MJCF `<actuator>` section or keyframes. It does contain four contact exclusions and four sensors; these have no portable core-URDF equivalent and should be documented rather than silently misrepresented.
+- Visual-only extra meshes (`pelvis_contour_link`, `logo_link`, `head_link`, rubber hands) are attached to their owning links and should remain multiple `<visual>` elements rather than becoming artificial links.
+- Correction from the user: the target project is the sibling repository `../robot_retargeter` (underscore), and its source model is `asset/robot/g1_description/mjcf/g1.xml`.
+- `../robot_retargeter/config/robot/g1.yaml` points directly to that MJCF. The same project already stores paired MJCF/URDF descriptions for several other robots, so adding a G1 URDF alongside its description matches repository conventions.
+- The G1 description directory was omitted by the earlier shallow listing because the first file listing was capped before reaching that path; it does exist at `../robot_retargeter/asset/robot/g1_description/`.
+- The `robot_retargeter` worktree is clean and contains no local AGENTS/CLAUDE/GEMINI instruction file.
+- The actual source MJCF differs from the installed `mjlab` model. It uses `meshdir="../meshes/"`, default joint dynamics (`damping=0.001`, `armature=0.01`, `frictionloss=0.1`), explicit actuator force ranges, duplicate visual/collision mesh geoms, and extra marker bodies such as `hips_sphere`, foot/toe endpoints, neck/head spheres.
+- Therefore the conversion must use `../robot_retargeter/asset/robot/g1_description/mjcf/g1.xml` exactly; the installed model is only a cross-check, not a source.
+- Existing URDFs in `robot_retargeter` use relative mesh filenames and sometimes a synthetic `world` link plus `floating_base_joint`; this is compatible with MuJoCo's URDF loader but is not required by standard ROS tooling.
+- Direct MuJoCo loading of the existing R1 URDF fails in the installed MuJoCo because it combines `<compiler meshdir="meshes">` with mesh filenames already prefixed by `meshes/`, producing `meshes/meshes/...`. The new G1 URDF should use one convention only: `meshdir="../meshes"` with bare STL basenames if placed under `urdf/`, or no `meshdir` with explicit relative paths.
+- The actual G1 MJCF has 37 named bodies but only 30 inertial bodies and 29 actuated hinge joints. Seven bodies are massless kinematic markers (`hips_sphere`, left/right foot-end, left/right toe, neck, head) and should be emitted only as fixed marker links if their frame names are useful.
+- The source defines all 29 motors and per-joint `actuatorfrcrange`; these map naturally to URDF joint `effort` limits. MJCF does not provide joint velocity limits, so a documented conservative/default value or explicit omission is required.
+- A minimal installed-MuJoCo test confirmed that a URDF root link alone becomes fixed (`nq=0`, `nv=0`), while a synthetic `world` link plus a `type="floating"` joint produces the required MuJoCo free joint (`nq=7`, `nv=6`). The training-oriented G1 URDF should therefore include the synthetic world/floating-base pair.
+- MuJoCo accepts but ignores arbitrary `<default>` and `<actuator>` children placed inside the URDF `<mujoco>` extension. Consequently, the generated URDF cannot carry source `armature=0.01` or instantiate the 29 motors; both must be restored by the consuming training configuration.
+- With `fusestatic="false"`, the generated URDF compiles to the same 38 bodies, 30 physical joints, 36 qpos coordinates, and 35 velocities as the source. All 84 compiled geoms and 35 meshes match in type, owning body, pose, size, and contact masks.
+- The final full link-frame inertia representation matches source physical inertia tensors within a maximum absolute error of `3.73e-8 kg·m²`, attributable to MuJoCo's eigen-decomposition of the URDF tensor.
+- For hhtools ingestion, the final file is now `../robot_retargeter/asset/robot/g1_description/g1.urdf`, directly beside `meshes/` and `mjcf/`.
+- The root-level URDF uses `<compiler meshdir="meshes" discardvisual="false" fusestatic="false"/>` with bare STL filenames. This fixes the prior `../meshes/...` lookup failure after hhtools flattened/uploaded the description directory.
+- All 35 referenced mesh assets resolve from the root-level URDF, and a fresh MuJoCo compile reports `nbody=38`, `njnt=30`, `nq=36`, `nv=35`, `nmesh=35`, and `ngeom=84`.
+- The superseded `g1_description/urdf/` directory was removed. Git reports the new G1 URDF plus three unrelated pre-existing R1 PNG files; the R1 files were not changed by this task. No commit was created.

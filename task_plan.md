@@ -28,6 +28,32 @@ root cause.
 - Status: in progress
 - Branch: reconstruct
 - Current experiment: Experiment 11 evaluation and Experiment 13 follow-up design
+
+## Documentation Maintenance: Experiment 15
+
+### Goal
+Create the Experiment 15 child document under the authorised Feishu master document, retaining the established experiment-page structure and recording only the implemented plan and pending training status.
+
+### Phases
+- [x] Phase 6: Verify the local Exp15 plan, implementation scope, and latest commits.
+- [x] Phase 7: Read the Feishu parent tree and a comparable experiment page to preserve its page structure.
+- [x] Phase 8: Create and populate the Experiment 15 child page, then read it back to verify the title, tables, and commands.
+
+### Next Step
+Await G1–G8 training and test results before selecting the Phase 2 parent group.
+
+## Experiment 15 G1–G4 Degradation Analysis
+
+### Goal
+Use the recorded Exp15 training, replay, and diagnostic logs to determine why G1–G4 regress from the Exp13 G4 baseline; make no implementation change before establishing evidence.
+
+### Phases
+- [x] Phase 9: Locate and preserve the relevant G1–G4 and Exp13 G4 evidence.
+- [x] Phase 10: Compare resume, optimization, command/reward, and diagnostic signals against the baseline.
+- [x] Phase 11: State evidence-backed cause hypotheses and a minimal next experiment; do not modify task code or start more training.
+
+### Next Step
+Report the evidence-backed diagnosis to the user; keep Exp15 G5–G13 untrained.
 - Task under construction: none; Exp15 implementation and local cached-dependency verification are complete
 
 ## Exp15 Implementation Status
