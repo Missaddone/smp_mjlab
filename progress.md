@@ -409,3 +409,9 @@
   per-step caching avoids recomputing the same diagnostic for each metric.
   Verification passed: 3 unit tests, all 13 Exp15 builders, Python compilation,
   and `git diff --check`.
+- 2026-08-10: Audited temporary colleague commit `1cd91ac` on `new_dev`. Added red tests that reproduced the NewDev Exp14 prior mismatch, non-atomic strict normalizer restore, checkpoint identity loss, missing explicit LAFAN stats, and absent Exp16 registry rows.
+- 2026-08-10: Fixed the NewDev Exp14 prior chain, added pre-load normalizer validation and identity inheritance, restored `datasets/norm_stats.npz` from `master`, passed it explicitly in both prior scripts, and added Exp16 G1-G3 registry rows.
+- 2026-08-10: Added `new_dev_exp13_exp14_summary.md` and `exp16_summary.md`. Focused verification currently passes: 22 unit tests, 15 registered task builders, shell syntax/help, changed-file Ruff, data-shape/quaternion checks, registry listing, and `git diff --check`. Full final verification and second review remain before Feishu update.
+- 2026-08-10: Final verification passed with 22 tests, Python compilation, changed-file Ruff, all seven shell scripts, 15 task builders/runner registrations, CSV/quaternion/stats checks, and `git diff --check`. A separate high-reasoning review returned no findings; only real GPU pretraining/W&B/fine-tuning execution remains untested.
+- 2026-08-10: Feishu maintainer created Experiment 16 (revision 2), appended the NewDev strict-resume chains to Experiment 13 (revision 456) and Experiment 14 (revision 253), and added the 8.10 row to `SMP跑位-唐雨洁` (revision 3798). All affected sections were re-fetched and verified without duplicate daily tables.
+- 2026-08-10: The user reiterated standing approval for all in-scope Feishu subdocument changes. The message was appended to the existing Notion conversation table at `2026-08-10 13:48:08 UTC`; no duplicate page or table was created.

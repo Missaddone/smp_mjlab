@@ -38,6 +38,7 @@ PRETRAIN_EPOCHS="${PRETRAIN_EPOCHS:-10000}"
 PRETRAIN_SAVE_INTERVAL="${PRETRAIN_SAVE_INTERVAL:-5000}"
 PRETRAIN_D_MODEL="${PRETRAIN_D_MODEL:-128}"
 PRETRAIN_NUM_LAYERS="${PRETRAIN_NUM_LAYERS:-2}"
+NORM_STATS_FILE="${NORM_STATS_FILE:-datasets/norm_stats.npz}"
 
 RAW_DIR="$WORK_ROOT/$PRIOR_NAME/raw"
 NPZ_DIR="$NPZ_ROOT/$PRIOR_NAME"
@@ -56,6 +57,11 @@ require_inputs() {
   [ -d "$LOCO_CSV_DIR" ] || { echo "[ERROR] Missing $LOCO_CSV_DIR" >&2; exit 1; }
   [ -f "$STOP_STATIC_CSV" ] || { echo "[ERROR] Missing $STOP_STATIC_CSV" >&2; exit 1; }
   [ -f scripts/mirror_motion_data.py ] || { echo "[ERROR] Missing mirror tool" >&2; exit 1; }
+  [ -f "$NORM_STATS_FILE" ] || {
+    echo "[ERROR] Missing LAFAN normalization stats: $NORM_STATS_FILE" >&2
+    echo "[ERROR] Reuse the full-LAFAN stats required by README.md; do not recompute them from this narrow subset." >&2
+    exit 1
+  }
 }
 
 reset_dirs() {
@@ -115,7 +121,7 @@ verify_complete_mirroring() {
 
 convert_and_pretrain() {
   run_uv scripts/csv_to_npz.py --input-dir "$RAW_DIR" --output-dir "$NPZ_DIR" --input-fps "$INPUT_FPS" --output-fps "$OUTPUT_FPS"
-  run_uv scripts/pretrain.py --data-dir "$NPZ_DIR" --num-layers "$PRETRAIN_NUM_LAYERS" --no-use-ema --save-interval "$PRETRAIN_SAVE_INTERVAL" --num-epochs "$PRETRAIN_EPOCHS" --train-split 1.0 --d-model "$PRETRAIN_D_MODEL" --name "$PRIOR_NAME" --log-dir "$LOG_DIR" --wandb-project smp
+  run_uv scripts/pretrain.py --data-dir "$NPZ_DIR" --norm-stats-file "$NORM_STATS_FILE" --num-layers "$PRETRAIN_NUM_LAYERS" --no-use-ema --save-interval "$PRETRAIN_SAVE_INTERVAL" --num-epochs "$PRETRAIN_EPOCHS" --train-split 1.0 --d-model "$PRETRAIN_D_MODEL" --name "$PRIOR_NAME" --log-dir "$LOG_DIR" --wandb-project smp
   local latest_run
   latest_run="$(find "$RUN_ROOT" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
   [ -n "$latest_run" ] && [ -f "$latest_run/pretrained.pt" ] || {

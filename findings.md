@@ -468,3 +468,12 @@
   sign-flip rate, and matching group joint-velocity RMS/peak. The values are
   cached once per policy step and shared by W&B metrics and the CSV recorder;
   they remain diagnostic-only.
+
+## NewDev Exp16 Review (2026-08-10)
+- Reviewed commit `1cd91ac` on branch `new_dev` with three independent read-only audits.
+- Blocking defect: NewDev Exp14 called the historical Exp13 builder, so it restored a normalizer calibrated for the fully mirrored prior while loading `exp10_loco_stop_static.pt`. The builder now inherits NewDev Exp13 and uses `new_dev_exp13_loco_stop_static_mirrored.pt` for every G1-G9 group.
+- Strict checkpoint restore now validates the entire `DiffNormalizer` state before the parent runner changes actor/critic/optimizer state. A loaded checkpoint identity is retained in later saves unless explicitly overridden.
+- NewDev Exp13 mirroring contract is valid: all `loco/*.csv` sources and `datasets/csv/forward/stop_static.csv` must have exactly one original/mirror pair.
+- Exp16 intentionally uses `datasets/csv/theme/motebu.csv` plus `datasets/csv/theme/stop_static.csv` and their mirrors. This matches the user's theme-directory description; the forward static clip is a different file and is not used for Exp16.
+- README requires a wide full-LAFAN normalization file rather than stats recomputed from a narrow prior subset. `datasets/norm_stats.npz` was missing from `reconstruct/new_dev` but exists on `master`; the same 59-feature file was restored and both prior scripts now require/pass it explicitly.
+- Exp16 command/reward contract remains unchanged: zero-command probability 0.3, x/y `[-1.5,1.5]`, yaw `[-2,2]`, and Exp13 G4/G5/G6 moving reward mixes. Exp16 G1-G3 registry rows are predeclared.

@@ -89,6 +89,10 @@ class NewDevExp13Exp14SpecificationTest(unittest.TestCase):
     for spec in EXP14_NEW_DEV_BODY_VELOCITY_GROUP_SPECS:
       with self.subTest(group=spec.group):
         cfg = _build_exp14_new_dev_body_velocity_cfg(spec)
+        self.assertEqual(
+          cfg.events["init_smp_state"].params["ckpt_path"],
+          "datasets/pretrain_ckpt/new_dev_exp13_loco_stop_static_mirrored.pt",
+        )
         extras = {
           key: value
           for key, value in cfg.rewards.items()
@@ -173,6 +177,8 @@ class Exp16SpecificationTest(unittest.TestCase):
     self.assertIn("expected_raw_files", prepare_script)
     self.assertIn('INPUT_FPS="${INPUT_FPS:-30}"', prepare_script)
     self.assertIn('OUTPUT_FPS="${OUTPUT_FPS:-50}"', prepare_script)
+    self.assertIn('NORM_STATS_FILE="${NORM_STATS_FILE:-datasets/norm_stats.npz}"', prepare_script)
+    self.assertIn('--norm-stats-file "$NORM_STATS_FILE"', prepare_script)
     self.assertIn("datasets/pretrain_ckpt/exp16_motebu_stop_static.pt", prepare_script)
     self.assertIn("--agent.max-iterations=10000", train_script)
     self.assertNotIn("--agent.resume=True", train_script)
@@ -191,6 +197,8 @@ class Exp16SpecificationTest(unittest.TestCase):
     self.assertIn("loco", prepare_script)
     self.assertIn("stop_static", prepare_script)
     self.assertIn("ensure_missing_mirrors", prepare_script)
+    self.assertIn('NORM_STATS_FILE="${NORM_STATS_FILE:-datasets/norm_stats.npz}"', prepare_script)
+    self.assertIn('--norm-stats-file "$NORM_STATS_FILE"', prepare_script)
     self.assertIn(
       "datasets/pretrain_ckpt/new_dev_exp13_loco_stop_static_mirrored.pt",
       prepare_script,
@@ -211,6 +219,14 @@ class Exp16SpecificationTest(unittest.TestCase):
     self.assertIn("--agent.algorithm.desired-kl=0.002", exp14_script)
     self.assertIn("--agent.algorithm.num-learning-epochs=1", exp14_script)
     self.assertIn("Smp-BodyVelocity-NewDev-Exp14-Group${GROUP}-G1", play_script)
+
+  def test_exp16_groups_are_predeclared_in_the_portable_wandb_registry(self):
+    registry = (
+      Path(__file__).resolve().parents[1] / "wandb_run_registry.csv"
+    ).read_text().splitlines()
+    self.assertIn("exp16,1,", registry)
+    self.assertIn("exp16,2,", registry)
+    self.assertIn("exp16,3,", registry)
 
 class DiagnosticTensorTest(unittest.TestCase):
   def test_action_diagnostics_measure_first_and_second_differences(self):

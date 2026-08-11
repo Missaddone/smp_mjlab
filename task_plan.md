@@ -74,6 +74,26 @@ ranges x/y +/-1.5 and yaw +/-2.0.
 ### Next Step
 Run the explicitly supplied prior and policy commands on the training server;
 record the resulting W&B paths before starting NewDev Exp14 fine-tunes.
+
+## new_dev Exp16 Implementation Review
+
+### Goal
+Audit commit `1cd91ac` against the approved new_dev requirements, repair any
+mandatory omissions, verify the complete checkpoint/prior/train/play workflow,
+and update the established Feishu experiment documentation only after the code
+review is clean.
+
+### Phases
+- [x] Phase 17: Review DiffNormalizer serialization and runner integration across train, resume, save, and play entrypoints.
+- [x] Phase 18: Review fully mirrored NewDev Exp13 prior and Exp13 G4--G6 rerun pipeline.
+- [x] Phase 19: Review Exp14 control/moving/static fine-tune matrix and strict parent-checkpoint handling.
+- [x] Phase 20: Review Exp16 four-CSV prior, command/reward inheritance, launcher, train, and play scripts.
+- [x] Phase 21: Implement mandatory fixes, run focused/full verification, and obtain a second code review.
+- [x] Phase 22: Update Feishu using the established maintainer procedure and verify the written document.
+
+### Next Step
+None. The repaired implementation, local documentation, Notion logging, and
+Feishu pages have all been verified; GPU training remains a user-run next step.
 - Task under construction: none; Exp15 implementation and local cached-dependency verification are complete
 
 ## Exp15 Implementation Status

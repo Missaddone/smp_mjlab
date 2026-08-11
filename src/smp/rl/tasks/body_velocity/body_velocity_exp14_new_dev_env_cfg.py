@@ -16,9 +16,9 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor.contact_sensor import ContactMatch, ContactSensorCfg
 
 from smp.rl.tasks.body_velocity import mdp
-from smp.rl.tasks.body_velocity.body_velocity_exp13_env_cfg import (
-  EXP13_BODY_VELOCITY_GROUP_SPECS,
-  _build_exp13_body_velocity_cfg,
+from smp.rl.tasks.body_velocity.body_velocity_new_dev_exp13_env_cfg import (
+  EXP13_NEW_DEV_BODY_VELOCITY_GROUP_SPECS,
+  _build_new_dev_exp13_body_velocity_cfg,
 )
 
 _PARENT_GROUPS = (4, 5, 6)
@@ -89,7 +89,9 @@ EXP14_NEW_DEV_BODY_VELOCITY_GROUP_SPECS = _make_specs()
 
 def _parent_spec(parent_group: int):
   return next(
-    spec for spec in EXP13_BODY_VELOCITY_GROUP_SPECS if spec.group == parent_group
+    spec
+    for spec in EXP13_NEW_DEV_BODY_VELOCITY_GROUP_SPECS
+    if spec.group == parent_group
   )
 
 
@@ -115,7 +117,9 @@ def _append_feet_contact_sensor(cfg: ManagerBasedRlEnvCfg) -> None:
 def _build_exp14_new_dev_body_velocity_cfg(
   spec: NewDevExp14BodyVelocityGroupSpec, play: bool = False
 ) -> ManagerBasedRlEnvCfg:
-  cfg = _build_exp13_body_velocity_cfg(_parent_spec(spec.parent_group), play=play)
+  cfg = _build_new_dev_exp13_body_velocity_cfg(
+    _parent_spec(spec.parent_group), play=play
+  )
   feet_cfg = SceneEntityCfg("robot", body_names=_FOOT_BODY_NAMES)
 
   if spec.moving_tilt_weight != 0.0:

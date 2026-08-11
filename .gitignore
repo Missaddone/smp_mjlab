@@ -17,3 +17,6 @@ tests/
 *.ckpt
 outputs/
 datasets/
+!datasets/
+datasets/*
+!datasets/norm_stats.npz

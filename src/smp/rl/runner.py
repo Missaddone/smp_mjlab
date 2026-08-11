@@ -29,6 +29,7 @@ class SmpOnPolicyRunner(MjlabOnPolicyRunner):
     strict_smp_normalizer_resume: bool = False,
   ) -> None:
     self.strict_smp_normalizer_resume = strict_smp_normalizer_resume
+    self._loaded_smp_checkpoint_identity: str | None = None
     super().__init__(env, train_cfg, log_dir, device)
 
   def save(self, path: str, infos=None) -> None:
@@ -38,7 +39,9 @@ class SmpOnPolicyRunner(MjlabOnPolicyRunner):
       **(infos or {}),
       "smp_normalizer": normalizer.state_dict(),
     }
-    identity = os.environ.get("SMP_CHECKPOINT_IDENTITY")
+    identity = os.environ.get("SMP_CHECKPOINT_IDENTITY") or getattr(
+      self, "_loaded_smp_checkpoint_identity", None
+    )
     if identity:
       checkpoint_infos["smp_checkpoint_identity"] = identity
     super().save(path, checkpoint_infos)
@@ -56,6 +59,9 @@ class SmpOnPolicyRunner(MjlabOnPolicyRunner):
       checkpoint_infos = checkpoint.get("infos")
       if not isinstance(checkpoint_infos, Mapping) or "smp_normalizer" not in checkpoint_infos:
         raise RuntimeError(self._missing_normalizer_message(path))
+      self.env.unwrapped._smp_normalizer.validate_state_dict(
+        checkpoint_infos["smp_normalizer"]
+      )
       expected_identity = os.environ.get("SMP_EXPECTED_CHECKPOINT_IDENTITY")
       if expected_identity and checkpoint_infos.get("smp_checkpoint_identity") != expected_identity:
         raise RuntimeError(self._identity_mismatch_message(path, expected_identity, checkpoint_infos))
@@ -64,6 +70,9 @@ class SmpOnPolicyRunner(MjlabOnPolicyRunner):
     normalizer_state = infos.get("smp_normalizer") if isinstance(infos, Mapping) else None
     if normalizer_state is not None:
       self.env.unwrapped._smp_normalizer.load_state_dict(normalizer_state)
+      identity = infos.get("smp_checkpoint_identity")
+      if isinstance(identity, str) and identity:
+        self._loaded_smp_checkpoint_identity = identity
       return infos
 
     message = self._missing_normalizer_message(path)

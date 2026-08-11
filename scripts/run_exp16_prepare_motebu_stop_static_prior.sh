@@ -36,6 +36,7 @@ PRETRAIN_EPOCHS="${PRETRAIN_EPOCHS:-10000}"
 PRETRAIN_SAVE_INTERVAL="${PRETRAIN_SAVE_INTERVAL:-5000}"
 PRETRAIN_D_MODEL="${PRETRAIN_D_MODEL:-128}"
 PRETRAIN_NUM_LAYERS="${PRETRAIN_NUM_LAYERS:-2}"
+NORM_STATS_FILE="${NORM_STATS_FILE:-datasets/norm_stats.npz}"
 
 RAW_DIR="$WORK_ROOT/$PRIOR_NAME/raw"
 NPZ_DIR="$NPZ_ROOT/$PRIOR_NAME"
@@ -51,7 +52,7 @@ run_uv() {
 }
 
 require_inputs() {
-  for path in "$MOTEBU_CSV" "$STOP_STATIC_CSV" scripts/mirror_motion_data.py; do
+  for path in "$MOTEBU_CSV" "$STOP_STATIC_CSV" "$NORM_STATS_FILE" scripts/mirror_motion_data.py; do
     if [ ! -f "$path" ]; then
       echo "[ERROR] Required file not found: $path" >&2
       exit 1
@@ -116,6 +117,7 @@ convert_and_pretrain() {
     --output-fps "$OUTPUT_FPS"
   run_uv scripts/pretrain.py \
     --data-dir "$NPZ_DIR" \
+    --norm-stats-file "$NORM_STATS_FILE" \
     --num-layers "$PRETRAIN_NUM_LAYERS" \
     --no-use-ema \
     --save-interval "$PRETRAIN_SAVE_INTERVAL" \

@@ -85,6 +85,17 @@ class DiffNormalizer:
 
   def load_state_dict(self, state: Mapping[str, Any]) -> None:
     """Restore a state produced by :meth:`state_dict` with strict validation."""
+    self.validate_state_dict(state)
+
+    mean = state["mean"]
+    count = state["count"]
+    self.mean.copy_(mean.to(device=self.mean.device, dtype=self.mean.dtype))
+    self.count.copy_(count.to(device=self.count.device, dtype=self.count.dtype))
+    self.min_value = float(state["min_value"])
+    self.max_count = state["max_count"]
+
+  def validate_state_dict(self, state: Mapping[str, Any]) -> None:
+    """Validate a serialized state without mutating this normalizer."""
     expected_keys = {
       "version",
       "num_timesteps",
@@ -130,11 +141,6 @@ class DiffNormalizer:
       raise ValueError("DiffNormalizer min_value must be finite and positive")
     if not isinstance(max_count, int) or isinstance(max_count, bool) or max_count < 0:
       raise ValueError("DiffNormalizer max_count must be a non-negative integer")
-
-    self.mean.copy_(mean.to(device=self.mean.device, dtype=self.mean.dtype))
-    self.count.copy_(count.to(device=self.count.device, dtype=self.count.dtype))
-    self.min_value = float(min_value)
-    self.max_count = max_count
 
   def update_and_normalize(self, t: int, mse_per_env: torch.Tensor) -> torch.Tensor:
     """Record MSE values for timestep ``t``; return them divided by the mean."""

@@ -145,6 +145,51 @@ class SmpOnPolicyRunnerResumeTest(unittest.TestCase):
     self.assertTrue(torch.equal(normalizer.mean, expected_mean))
     self.assertTrue(torch.equal(normalizer.count, expected_count))
 
+  def test_strict_load_rejects_malformed_normalizer_before_parent_load(self):
+    runner = self._runner(self._normalizer(), strict=True)
+    malformed = {
+      **self._normalizer().state_dict(),
+      "mean": torch.ones(4),
+    }
+
+    with TemporaryDirectory() as directory:
+      checkpoint_path = f"{directory}/malformed.pt"
+      torch.save({"infos": {"smp_normalizer": malformed}}, checkpoint_path)
+      with patch.object(MjlabOnPolicyRunner, "load") as parent_load:
+        with self.assertRaisesRegex(ValueError, "invalid shape"):
+          runner.load(checkpoint_path)
+
+    parent_load.assert_not_called()
+
+  def test_loaded_checkpoint_identity_is_preserved_on_the_next_save(self):
+    runner = self._runner(self._normalizer(), strict=True)
+    source = self._normalizer()
+    infos = {
+      "smp_normalizer": source.state_dict(),
+      "smp_checkpoint_identity": "new_dev_exp13_g4",
+    }
+
+    with TemporaryDirectory() as directory:
+      checkpoint_path = f"{directory}/parent.pt"
+      torch.save({"infos": infos}, checkpoint_path)
+      with patch.dict(
+        os.environ,
+        {"SMP_EXPECTED_CHECKPOINT_IDENTITY": "new_dev_exp13_g4"},
+        clear=True,
+      ):
+        with patch.object(MjlabOnPolicyRunner, "load", return_value=infos):
+          runner.load(checkpoint_path)
+
+      with patch.dict(os.environ, {}, clear=True):
+        with patch.object(MjlabOnPolicyRunner, "save") as parent_save:
+          runner.save("child.pt")
+
+    _, saved_infos = parent_save.call_args.args
+    self.assertEqual(
+      saved_infos["smp_checkpoint_identity"],
+      "new_dev_exp13_g4",
+    )
+
   def test_strict_load_rejects_mismatched_checkpoint_identity_before_parent_load(self):
     runner = self._runner(self._normalizer(), strict=True)
     source = self._normalizer()
