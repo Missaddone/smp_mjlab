@@ -154,3 +154,44 @@ Add exact commands in `findings.md`, state that Exp13 reruns create the first st
 Run: `git add src/smp/rl tests scripts docs findings.md progress.md task_plan.md && git commit -m "feat: add resumable smp checkpoints and exp16 pipeline"`
 
 Expected: one commit on `new_dev`; `reconstruct` remains unchanged.
+
+### Task 6: Make the original launcher the sole NewDev experiment entrypoint
+
+**Files:**
+- Modify: `scripts/experiment_launcher.py`
+- Create: `scripts/play_new_dev_exp13_groups4_6_wandb.sh`
+- Create locally (ignored): `tests/test_experiment_launcher_new_dev.py`
+- Modify: `wandb_run_registry.csv`
+- Modify: `new_dev_exp13_exp14_summary.md`
+- Modify: `exp16_summary.md`
+- Modify: `findings.md`
+- Modify: `progress.md`
+- Modify: `task_plan.md`
+
+- [x] **Step 1: Write failing launcher tests**
+
+Cover NewDev Exp13/Exp14/Exp16 group ranges, training/play scripts, W&B experiment
+names, Exp14 parent mapping, and parent-path resolution from `wandb_run_registry.csv`.
+
+- [x] **Step 2: Run red tests**
+
+Run: `PYTHONDONTWRITEBYTECODE=1 ./.venv/bin/python -m unittest tests.test_experiment_launcher_new_dev`
+
+Expected: failures showing historical Exp13/Exp14 ranges, scripts, names, and parent mapping.
+
+- [x] **Step 3: Replace historical mappings in the original launcher**
+
+Use `scripts/experiment_launcher.py` as the only launcher. Exp13 becomes NewDev G4--G6,
+Exp14 becomes NewDev G1--G9 with repeating G4/G5/G6 parents, and Exp16 remains G1--G3.
+Delete the redundant launcher. Add NewDev Exp13 playback and remove obsolete registry
+rows/ids so no historical parent can be selected on this branch.
+
+- [x] **Step 4: Document exact copy-paste commands**
+
+Use the original launcher commands in both NewDev summaries. Prior preparation remains
+a direct data-pipeline script; all policy training/play commands use one launcher.
+
+- [x] **Step 5: Run focused and regression verification**
+
+Run the unified launcher tests, existing NewDev tests, Ruff, `list`/help/status, registry
+shape validation, Bash syntax checks, and `git diff --check`. Do not launch training.

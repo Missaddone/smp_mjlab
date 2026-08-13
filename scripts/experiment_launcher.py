@@ -25,40 +25,17 @@ DEFAULT_WANDB_PROJECT = "smp"
 WANDB_EXPERIMENT_NAMES = {
   "exp11": "smp_exp11_body_velocity_foot_tilt",
   "exp12": "smp_exp12_body_velocity_theme_prior",
-  "exp13": "smp_exp13_body_velocity_moving_reward_mix",
-  "exp14": "smp_exp14_body_velocity_flatfoot_duty",
+  "exp13": "smp_new_dev_exp13_body_velocity_moving_reward_mix",
+  "exp14": "smp_new_dev_exp14_body_velocity_flatfoot",
   "exp15": "smp_exp15_body_velocity_flatfoot_staged",
   "exp16": "smp_exp16_body_velocity_motebu_stop_static",
 }
 WandbRegistryRow = dict[str, str]
-EXP14_SECOND_STAGE_PARENT_GROUPS = {
-  31: 17,
-  32: 17,
-  33: 20,
-  34: 20,
-  35: 21,
-  36: 21,
-  37: 22,
-  38: 22,
-  39: 23,
-  40: 23,
-}
-EXP14_SECOND_STAGE_CHECKPOINTS = {
-  31: "model_12998.pt",
-  32: "model_12998.pt",
-  33: "model_15998.pt",
-  34: "model_15998.pt",
-  35: "model_12998.pt",
-  36: "model_12998.pt",
-  37: "model_15998.pt",
-  38: "model_15998.pt",
-  39: "model_12998.pt",
-  40: "model_12998.pt",
-}
 
 
 @dataclass(frozen=True)
 class ExperimentSpec:
+  min_group: int
   max_group: int
   train_script: str
   play_script: str
@@ -66,31 +43,37 @@ class ExperimentSpec:
 
 SPECS = {
   "exp11": ExperimentSpec(
+    min_group=1,
     max_group=26,
     train_script="scripts/run_exp11_body_velocity_foot_tilt.sh",
     play_script="scripts/play_exp11_groups1_26_wandb.sh",
   ),
   "exp12": ExperimentSpec(
+    min_group=1,
     max_group=18,
     train_script="scripts/run_exp12_theme_policy_groups1_18.sh",
     play_script="scripts/play_exp12_groups1_18_wandb.sh",
   ),
   "exp13": ExperimentSpec(
-    max_group=21,
-    train_script="scripts/run_exp13_groups1_21.sh",
-    play_script="scripts/play_exp13_groups1_21_wandb.sh",
+    min_group=4,
+    max_group=6,
+    train_script="scripts/run_new_dev_exp13_groups4_6.sh",
+    play_script="scripts/play_new_dev_exp13_groups4_6_wandb.sh",
   ),
   "exp14": ExperimentSpec(
-    max_group=40,
-    train_script="scripts/run_exp14_groups1_40.sh",
-    play_script="scripts/play_exp14_groups1_40_wandb.sh",
+    min_group=1,
+    max_group=9,
+    train_script="scripts/run_new_dev_exp14_groups1_9.sh",
+    play_script="scripts/play_new_dev_exp14_groups1_9_wandb.sh",
   ),
   "exp15": ExperimentSpec(
+    min_group=1,
     max_group=13,
     train_script="scripts/run_exp15_groups1_13.sh",
     play_script="scripts/play_exp15_groups1_13_wandb.sh",
   ),
   "exp16": ExperimentSpec(
+    min_group=1,
     max_group=3,
     train_script="scripts/run_exp16_groups1_3.sh",
     play_script="scripts/play_exp16_groups1_3_wandb.sh",
@@ -195,7 +178,7 @@ def _complete_wandb_run_registry_rows(
     by_key[key] = row
 
   for experiment, spec in SPECS.items():
-    for group in range(1, spec.max_group + 1):
+    for group in range(spec.min_group, spec.max_group + 1):
       by_key.setdefault(
         (experiment, group), {"exp": experiment, "group": str(group), "run_id": ""}
       )
@@ -276,13 +259,11 @@ def find_wandb_run_ids(
     expected_experiment_name = WANDB_EXPERIMENT_NAMES[experiment]
     for run in runs:
       tags = run.tags or []
-      if require_tag:
-        if experiment not in tags:
-          continue
-      else:
-        config_values = {str(value) for value in (run.config or {}).values()}
-        if expected_experiment_name not in config_values:
-          continue
+      if require_tag and experiment not in tags:
+        continue
+      config_values = {str(value) for value in (run.config or {}).values()}
+      if expected_experiment_name not in config_values:
+        continue
       for group, pattern in patterns.items():
         if pattern.search(run.name or "") and run not in matches_by_group[group]:
           matches_by_group[group].append(run)
@@ -356,37 +337,19 @@ def get_record(record_id: str) -> dict[str, object]:
 
 
 def validate_group(experiment: str, group: int) -> None:
-  max_group = SPECS[experiment].max_group
-  if not 1 <= group <= max_group:
-    raise ValueError(f"{experiment} group must be in 1..{max_group}, got {group}")
-
-
-def exp13_finetune_parent_group(group: int) -> int | None:
-  """Return the Exp13 parent checkpoint group for a fine-tuning group."""
-  if 7 <= group <= 10:
-    return 4
-  if 11 <= group <= 14:
-    return 5
-  if 15 <= group <= 18:
-    return 6
-  if group == 19:
-    return 4
-  if group == 20:
-    return 5
-  if group == 21:
-    return 6
-  return None
+  spec = SPECS[experiment]
+  if not spec.min_group <= group <= spec.max_group:
+    raise ValueError(
+      f"{experiment} group must be in {spec.min_group}..{spec.max_group}, got {group}"
+    )
 
 
 def finetune_source_group(experiment: str, group: int) -> tuple[str, int] | None:
   """Return the experiment/group providing a fine-tune source checkpoint."""
   if experiment == "exp13":
-    parent_group = exp13_finetune_parent_group(group)
-    return None if parent_group is None else ("exp13", parent_group)
+    return None
   if experiment == "exp14":
-    if group in EXP14_SECOND_STAGE_PARENT_GROUPS:
-      return ("exp14", EXP14_SECOND_STAGE_PARENT_GROUPS[group])
-    return ("exp13", 5)
+    return ("exp13", 4 + (group - 1) % 3)
   if experiment == "exp15" and group <= 8:
     return ("exp13", 4)
   return None
@@ -394,8 +357,6 @@ def finetune_source_group(experiment: str, group: int) -> tuple[str, int] | None
 
 def default_checkpoint_name(experiment: str, group: int) -> str:
   """Return the final checkpoint for each planned fine-tune source."""
-  if experiment == "exp14":
-    return EXP14_SECOND_STAGE_CHECKPOINTS.get(group, "model_9999.pt")
   return "model_9999.pt"
 
 
@@ -523,11 +484,15 @@ def run_record(record_id: str) -> int:
   update_record(record_id, status="running", started_at=utc_now())
   command = train_command(record)
   env = os.environ.copy()
+  experiment = str(record["experiment"])
+  wandb_tags = experiment
+  if experiment in ("exp13", "exp14", "exp16"):
+    wandb_tags = f"{experiment},new_dev"
   env.update(
     {
       "WANDB_RUN_ID": str(record["wandb_run_id"]),
       "WANDB_ENTITY": str(record["wandb_entity"]),
-      "WANDB_TAGS": str(record["experiment"]),
+      "WANDB_TAGS": wandb_tags,
       "WANDB_RESUME": "never",
       "PYTHONUNBUFFERED": "1",
     }
@@ -619,11 +584,12 @@ def main() -> int:
 
   if args.command == "list":
     for name, spec in SPECS.items():
-      print(f"{name}: groups 1..{spec.max_group}")
+      print(f"{name}: groups {spec.min_group}..{spec.max_group}")
     return 0
 
   if args.command == "train":
     try:
+      validate_group(args.experiment, args.group)
       source_wandb_path = training_source_wandb_path(
         args.experiment,
         args.group,
@@ -684,7 +650,9 @@ def main() -> int:
     experiments = [args.experiment] if args.experiment is not None else list(SPECS)
     for experiment in experiments:
       groups = list(
-        [args.group] if args.group is not None else range(1, SPECS[experiment].max_group + 1)
+        [args.group]
+        if args.group is not None
+        else range(SPECS[experiment].min_group, SPECS[experiment].max_group + 1)
       )
       for group in groups:
         try:

@@ -415,3 +415,12 @@
 - 2026-08-10: Final verification passed with 22 tests, Python compilation, changed-file Ruff, all seven shell scripts, 15 task builders/runner registrations, CSV/quaternion/stats checks, and `git diff --check`. A separate high-reasoning review returned no findings; only real GPU pretraining/W&B/fine-tuning execution remains untested.
 - 2026-08-10: Feishu maintainer created Experiment 16 (revision 2), appended the NewDev strict-resume chains to Experiment 13 (revision 456) and Experiment 14 (revision 253), and added the 8.10 row to `SMP跑位-唐雨洁` (revision 3798). All affected sections were re-fetched and verified without duplicate daily tables.
 - 2026-08-10: The user reiterated standing approval for all in-scope Feishu subdocument changes. The message was appended to the existing Notion conversation table at `2026-08-10 13:48:08 UTC`; no duplicate page or table was created.
+- 2026-08-11: Rejected the temporary second-launcher design and deleted it. The original `scripts/experiment_launcher.py` now directly maps Exp13 G4-G6, Exp14 G1-G9, and Exp16 G1-G3 to their NewDev scripts/configurations.
+- 2026-08-11: Added NewDev Exp13 playback, replaced summary commands with the single-launcher format, removed obsolete Exp13/Exp14 registry rows, and cleared historical ids retained in the valid NewDev rows.
+- 2026-08-11: Appended the launcher request once to the existing continuous Notion conversation table at `2026-08-11 02:56:15 UTC`; no new page or table was created.
+- 2026-08-11: Unified launcher verification passed: 30 tests, Ruff, all NewDev Exp13/14/16 shell syntax checks, exact group-range listing, registry shape checks, invalid-group rejection, and `git diff --check`. No GPU/W&B training was started.
+- 2026-08-11: W&B backfill now requires the NewDev `agent.experiment-name` in addition to the experiment tag, so blank registry cells cannot be repopulated from historical Exp13/Exp14 runs.
+- 2026-08-11: The unified-launcher request was appended once to the existing continuous Notion table at `2026-08-11 04:02:00 UTC`.
+
+## Errors Encountered
+- A multi-file `apply_patch` used an inexact heading/context twice while replacing launcher planning text and annotating historical summaries. Both attempts made no partial change; the retry used the exact current block/header and succeeded.

@@ -1,5 +1,8 @@
 # Experiment 13: Body-Velocity Moving Reward Product Mix
 
+> Historical record. On `new_dev`, use `new_dev_exp13_exp14_summary.md`; switch back
+> to the source branch to run the original policy scripts.
+
 ## Goal
 
 Test whether single-axis `x/y/yaw` command tracking improves when the moving

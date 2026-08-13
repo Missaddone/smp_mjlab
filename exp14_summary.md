@@ -1,5 +1,8 @@
 # Experiment 14: Flat-Foot, Contact-Duty, And Moving Support-Foot Fine-Tuning
 
+> Historical record. On `new_dev`, use `new_dev_exp13_exp14_summary.md`; switch back
+> to the source branch to run the original policy scripts.
+
 Groups 1-30 independently resume Exp13 G5 (`model_9999.pt`). Groups 31-40
 resume their listed completed Exp14 moving-tilt parent. They preserve the
 parent prior, body-velocity command, stop branch, moving reward mix,

@@ -477,3 +477,10 @@
 - Exp16 intentionally uses `datasets/csv/theme/motebu.csv` plus `datasets/csv/theme/stop_static.csv` and their mirrors. This matches the user's theme-directory description; the forward static clip is a different file and is not used for Exp16.
 - README requires a wide full-LAFAN normalization file rather than stats recomputed from a narrow prior subset. `datasets/norm_stats.npz` was missing from `reconstruct/new_dev` but exists on `master`; the same 59-feature file was restored and both prior scripts now require/pass it explicitly.
 - Exp16 command/reward contract remains unchanged: zero-command probability 0.3, x/y `[-1.5,1.5]`, yaw `[-2,2]`, and Exp13 G4/G5/G6 moving reward mixes. Exp16 G1-G3 registry rows are predeclared.
+
+## Unified NewDev Experiment Launcher (2026-08-11)
+- `scripts/experiment_launcher.py` is the only launcher on `new_dev`; the redundant dedicated launcher was deleted.
+- Exp13 now means only NewDev G4-G6, Exp14 means only NewDev G1-G9, and Exp16 remains the new motebu G1-G3 configuration.
+- Exp14 parent mapping is `1/4/7 -> Exp13 G4`, `2/5/8 -> G5`, and `3/6/9 -> G6`; policy training and play both use the shared W&B registry automatically.
+- Historical Exp13/Exp14 registry rows were removed and remaining G4-G6/G1-G9 ids were cleared. Training writes new ids before launch, preventing this branch from resolving historical checkpoints.
+- Actual GPU/W&B training was not started during implementation.

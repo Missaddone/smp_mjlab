@@ -94,6 +94,29 @@ review is clean.
 ### Next Step
 None. The repaired implementation, local documentation, Notion logging, and
 Feishu pages have all been verified; GPU training remains a user-run next step.
+
+## Unified new_dev Experiment Launcher
+
+### Goal
+Use only the existing `scripts/experiment_launcher.py` on `new_dev`. Exp13 G4-G6,
+Exp14 G1-G9, and Exp16 G1-G3 must all launch the new branch configurations. Remove
+the redundant dedicated launcher and stop preserving historical Exp13/Exp14 launcher
+behavior on this branch.
+
+### Phases
+- [x] Phase 23: Confirm the dedicated-launcher design and audit existing registry helpers/scripts.
+- [x] Phase 24: Add failing tests for mapping, registry replacement, missing parents, and playback lookup.
+- [x] Phase 25: Implement the NewDev launcher without changing historical launcher mappings.
+- [x] Phase 26: Replace summary placeholders with exact launcher commands and warnings.
+- [x] Phase 27: Run focused/regression verification and record the handoff.
+- [x] Phase 28: Approve replacing historical launcher mappings instead of maintaining a second launcher.
+- [x] Phase 29: Add failing tests for unified Exp13/Exp14/Exp16 mappings and ranges.
+- [x] Phase 30: Refactor the original launcher, remove the redundant launcher, and align Exp13 playback.
+- [x] Phase 31: Update NewDev summaries and the shared W&B registry shape.
+- [x] Phase 32: Run full verification without launching GPU training.
+
+### Next Step
+None. The original launcher is now the sole NewDev entrypoint for Exp13, Exp14, and Exp16.
 - Task under construction: none; Exp15 implementation and local cached-dependency verification are complete
 
 ## Exp15 Implementation Status

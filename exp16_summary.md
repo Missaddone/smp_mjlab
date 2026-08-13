@@ -46,13 +46,12 @@ datasets/pretrain_ckpt/exp16_motebu_stop_static.pt
 
 ```bash
 bash scripts/run_exp16_prepare_motebu_stop_static_prior.sh --gpu <gpu>
-bash scripts/run_exp16_groups1_3.sh <group> <gpu>
+uv run scripts/experiment_launcher.py train exp16 <group> --gpu <gpu>
 ```
 
 ```bash
-bash scripts/play_exp16_groups1_3_wandb.sh \
-  --gpu <gpu> <group> <wandb_run_path>
+uv run scripts/experiment_launcher.py play exp16 <group> --gpu <gpu>
 ```
 
-`wandb_run_registry.csv` 已预留 Exp16 G1-G3 三行；也可以通过
-`scripts/experiment_launcher.py` 训练或播放 Exp16。
+`wandb_run_registry.csv` 已预留 Exp16 G1-G3 三行。训练时 launcher 自动生成并写入
+W&B run id，play 时自动读取，不需要手动填写 W&B path。
